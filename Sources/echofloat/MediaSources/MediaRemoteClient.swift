@@ -73,11 +73,32 @@ final class LiveMediaRemoteClient: MediaRemoteClient {
         let track = TrackSignature(title: title, artist: artist, album: album, durationSeconds: durationSeconds)
         return NowPlayingState(
             track: track,
-            sourceAppName: "System",
+            sourceAppName: sourceName(from: info),
             status: isPlaying ? .playing : .paused,
             elapsedSeconds: elapsed,
             capturedAt: Date()
         )
+    }
+
+    private static func sourceName(from info: [String: Any]) -> String {
+        let directKeys = [
+            "kMRMediaRemoteNowPlayingInfoClientName",
+            "kMRMediaRemoteNowPlayingInfoAppName",
+            "kMRMediaRemoteNowPlayingInfoBundleIdentifier"
+        ]
+        for key in directKeys {
+            if let value = info[key] as? String, !value.isEmpty {
+                return value
+            }
+        }
+        if let properties = info["kMRMediaRemoteNowPlayingInfoClientProperties"] as? [String: Any] {
+            for key in ["name", "displayName", "bundleIdentifier"] {
+                if let value = properties[key] as? String, !value.isEmpty {
+                    return value
+                }
+            }
+        }
+        return "Source unavailable"
     }
 
     func sendCommand(_ command: MediaRemoteCommand) {

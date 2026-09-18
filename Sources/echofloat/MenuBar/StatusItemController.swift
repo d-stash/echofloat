@@ -23,6 +23,14 @@ final class StatusItemController {
     private func buildMenu() {
         let menu = NSMenu()
 
+        let visibilityItem = NSMenuItem(
+            title: overlayController.isVisible ? "Hide Overlay" : "Show Overlay",
+            action: #selector(toggleOverlayVisibility),
+            keyEquivalent: ""
+        )
+        visibilityItem.target = self
+        menu.addItem(visibilityItem)
+
         let themeMenu = NSMenu()
         for theme in Theme.builtIn {
             let item = NSMenuItem(title: theme.name, action: #selector(selectTheme(_:)), keyEquivalent: "")
@@ -67,6 +75,11 @@ final class StatusItemController {
 
     @objc private func toggleDisplayMode() {
         overlayController.showOnAllDisplays.toggle()
+        buildMenu()
+    }
+
+    @objc private func toggleOverlayVisibility() {
+        overlayController.isVisible.toggle()
         buildMenu()
     }
 

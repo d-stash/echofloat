@@ -3,6 +3,7 @@ import SwiftUI
 struct ExpandedLyricsPanelView: View {
     @ObservedObject var viewModel: PlayerViewModel
     let theme: Theme
+    let onHoverChanged: (Bool) -> Void
 
     var body: some View {
         ZStack {
@@ -13,24 +14,34 @@ struct ExpandedLyricsPanelView: View {
                 Text(viewModel.nowPlaying?.sourceAppName ?? "")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(Array(lyricLines.enumerated()), id: \.offset) { index, line in
-                                Text(line.text)
-                                    .font(index == viewModel.currentLineIndex ? .title3.bold() : .body)
-                                    .foregroundStyle(
-                                        index == viewModel.currentLineIndex
-                                            ? Color(hex: theme.accentColorHex)
-                                            : .white.opacity(0.6)
-                                    )
-                                    .id(index)
+                Group {
+                    if case .plain(let text) = viewModel.lyrics {
+                        ScrollView {
+                            Text(text)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                    } else {
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                LazyVStack(alignment: .leading, spacing: 8) {
+                                    ForEach(Array(lyricLines.enumerated()), id: \.offset) { index, line in
+                                        Text(line.text)
+                                            .font(index == viewModel.currentLineIndex ? .title3.bold() : .body)
+                                            .foregroundStyle(
+                                                index == viewModel.currentLineIndex
+                                                    ? Color(hex: theme.accentColorHex)
+                                                    : .white.opacity(0.6)
+                                            )
+                                            .id(index)
+                                    }
+                                }
+                            }
+                            .onChange(of: viewModel.currentLineIndex) { newValue in
+                                guard let newValue else { return }
+                                withAnimation { proxy.scrollTo(newValue, anchor: .center) }
                             }
                         }
-                    }
-                    .onChange(of: viewModel.currentLineIndex) { newValue in
-                        guard let newValue else { return }
-                        withAnimation { proxy.scrollTo(newValue, anchor: .center) }
                     }
                 }
                 HStack(spacing: 24) {
@@ -46,6 +57,7 @@ struct ExpandedLyricsPanelView: View {
             .padding(16)
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onHover(perform: onHoverChanged)
     }
 
     private var lyricLines: [LyricLine] {

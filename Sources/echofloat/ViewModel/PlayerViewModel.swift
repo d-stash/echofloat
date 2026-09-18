@@ -11,6 +11,7 @@ final class PlayerViewModel: ObservableObject {
     private let lyricsProvider: LyricsProvider
     private let cache: LyricsCache
     private var listenTask: Task<Void, Never>?
+    private var lyricsTask: Task<Void, Never>?
     private var lifecycleVersion = 0
 
     init(musicSource: MusicSource, lyricsProvider: LyricsProvider, cache: LyricsCache) {
@@ -26,7 +27,7 @@ final class PlayerViewModel: ObservableObject {
         listenTask = Task { [weak self] in
             guard let self else { return }
             for await state in self.musicSource.nowPlayingUpdates {
-                await self.handle(state, version: version)
+                self.handle(state, version: version)
             }
         }
     }
@@ -34,29 +35,47 @@ final class PlayerViewModel: ObservableObject {
     func stop() {
         listenTask?.cancel()
         listenTask = nil
+        lyricsTask?.cancel()
+        lyricsTask = nil
         lifecycleVersion += 1
     }
 
-    private func handle(_ state: NowPlayingState?, version: Int) async {
+    private func handle(_ state: NowPlayingState?, version: Int) {
         let previousTrack = nowPlaying?.track
         nowPlaying = state
         guard let state else {
+            lyricsTask?.cancel()
+            lyricsTask = nil
             lyrics = .notFound
             currentLineIndex = nil
             return
         }
 
         if state.track != previousTrack {
+            lyricsTask?.cancel()
+            lyricsTask = nil
             if let cached = cache.load(for: state.track) {
                 lyrics = cached
             } else {
-                let fetched = await lyricsProvider.lyrics(for: state.track)
-                guard !Task.isCancelled, version == lifecycleVersion else { return }
-                lyrics = fetched
-                cache.store(fetched, for: state.track)
+                let track = state.track
+                lyricsTask = Task { [weak self] in
+                    guard let self else { return }
+                    let fetched = await self.lyricsProvider.lyrics(for: track)
+                    guard !Task.isCancelled else { return }
+                    self.publish(fetched, for: track, version: version)
+                }
             }
         }
         updateCurrentLine(elapsed: state.elapsedSeconds)
+    }
+
+    private func publish(_ fetched: LyricsResult, for track: TrackSignature, version: Int) {
+        guard version == lifecycleVersion,
+              nowPlaying?.track == track,
+              !Task.isCancelled else { return }
+        lyrics = fetched
+        cache.store(fetched, for: track)
+        updateCurrentLine(elapsed: nowPlaying?.elapsedSeconds ?? 0)
     }
 
     private func updateCurrentLine(elapsed: Double) {
