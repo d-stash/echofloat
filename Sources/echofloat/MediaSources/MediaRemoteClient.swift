@@ -21,6 +21,7 @@ final class LiveMediaRemoteClient: MediaRemoteClient {
 
     private let handle: UnsafeMutableRawPointer
     private var updateHandler: ((NowPlayingState?) -> Void)?
+    private var notificationObserver: NSObjectProtocol?
 
     init?() {
         guard let handle = dlopen(
@@ -31,6 +32,9 @@ final class LiveMediaRemoteClient: MediaRemoteClient {
     }
 
     deinit {
+        if let notificationObserver {
+            NotificationCenter.default.removeObserver(notificationObserver)
+        }
         dlclose(handle)
     }
 
@@ -42,7 +46,7 @@ final class LiveMediaRemoteClient: MediaRemoteClient {
         let register = unsafeBitCast(registerPtr, to: RegisterForNotificationsFunction.self)
         register(DispatchQueue.main)
 
-        NotificationCenter.default.addObserver(
+        notificationObserver = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("kMRMediaRemoteNowPlayingInfoDidChangeNotification"),
             object: nil,
             queue: .main
