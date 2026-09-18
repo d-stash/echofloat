@@ -119,6 +119,18 @@ doesn't register with Now Playing at all. Those would be added as a new
   the "liquid glass" look; fully see-through background content remains
   visible/controllable behind it.
 
+**(ASSUMPTION) Built in-house, not via a third-party UI library.** Checked
+for open-source "Apple Liquid Glass" SwiftUI component libraries; none exist
+at production quality — the closest hit (`GlassmorphismUI` by
+nekoribocchi) is a tiny, early-stage package with just a couple of
+bar/button components, not vetted for this app's custom notch-anchoring and
+click-through needs. `top-notch` already proves this look is achievable with
+zero dependencies using native `.ultraThinMaterial`/`NSVisualEffectView`, so
+LyricsBar does the same. Theme motifs (neon grid, particle glow) are
+hand-rolled procedural SwiftUI `Canvas`/`Shape` code, not external
+art/asset packs — avoids license risk and keeps the zero-dependency
+philosophy from `top-notch` intact.
+
 ## 6. Theming
 
 `Theme` struct: id, name, background gradient, accent color, glass blur
