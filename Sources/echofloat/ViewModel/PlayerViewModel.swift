@@ -11,6 +11,7 @@ final class PlayerViewModel: ObservableObject {
     private let lyricsProvider: LyricsProvider
     private let cache: LyricsCache
     private var listenTask: Task<Void, Never>?
+    private var lifecycleVersion = 0
 
     init(musicSource: MusicSource, lyricsProvider: LyricsProvider, cache: LyricsCache) {
         self.musicSource = musicSource
@@ -19,10 +20,13 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func start() {
+        listenTask?.cancel()
+        lifecycleVersion += 1
+        let version = lifecycleVersion
         listenTask = Task { [weak self] in
             guard let self else { return }
             for await state in self.musicSource.nowPlayingUpdates {
-                await self.handle(state)
+                await self.handle(state, version: version)
             }
         }
     }
@@ -30,9 +34,10 @@ final class PlayerViewModel: ObservableObject {
     func stop() {
         listenTask?.cancel()
         listenTask = nil
+        lifecycleVersion += 1
     }
 
-    private func handle(_ state: NowPlayingState?) async {
+    private func handle(_ state: NowPlayingState?, version: Int) async {
         let previousTrack = nowPlaying?.track
         nowPlaying = state
         guard let state else {
@@ -46,6 +51,7 @@ final class PlayerViewModel: ObservableObject {
                 lyrics = cached
             } else {
                 let fetched = await lyricsProvider.lyrics(for: state.track)
+                guard !Task.isCancelled, version == lifecycleVersion else { return }
                 lyrics = fetched
                 cache.store(fetched, for: state.track)
             }
