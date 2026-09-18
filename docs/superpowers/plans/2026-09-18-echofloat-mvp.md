@@ -1,4 +1,4 @@
-# LyricsBar MVP Implementation Plan
+# Echofloat MVP Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -21,7 +21,7 @@ item.
 bundled with Swift 5.9+ toolchains) for unit tests, `Foundation.URLSession`
 for networking. Zero external package dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-09-18-lyrics-bar-design.md`
+**Spec:** `docs/superpowers/specs/2026-09-18-echofloat-design.md`
 
 ## Global Constraints
 
@@ -43,9 +43,9 @@ for networking. Zero external package dependencies.
 ## File Structure
 
 ```
-lyrics-bar/
+echofloat/
   Package.swift
-  Sources/lyricsbar/
+  Sources/echofloat/
     App/
       main.swift
       AppDelegate.swift
@@ -82,7 +82,7 @@ lyrics-bar/
       StatusItemController.swift
     Support/
       AutostartManager.swift
-  Tests/lyricsbarTests/
+  Tests/echofloatTests/
     TrackSignatureTests.swift
     LRCParserTests.swift
     LRCLibProviderTests.swift
@@ -100,13 +100,13 @@ lyrics-bar/
 
 **Files:**
 - Create: `Package.swift`
-- Create: `Sources/lyricsbar/App/main.swift`
-- Create: `Sources/lyricsbar/App/AppDelegate.swift`
+- Create: `Sources/echofloat/App/main.swift`
+- Create: `Sources/echofloat/App/AppDelegate.swift`
 - Test: none (no testable logic yet — verified by running the app)
 
 **Interfaces:**
 - Produces: an `AppDelegate` class and a running SPM executable target
-  named `lyricsbar`, plus a `lyricsbarTests` test target that later tasks
+  named `echofloat`, plus a `echofloatTests` test target that later tasks
   add test files to.
 
 - [ ] **Step 1: Write `Package.swift`**
@@ -116,11 +116,11 @@ lyrics-bar/
 import PackageDescription
 
 let package = Package(
-    name: "lyricsbar",
+    name: "echofloat",
     platforms: [.macOS(.v13)],
     targets: [
-        .executableTarget(name: "lyricsbar"),
-        .testTarget(name: "lyricsbarTests", dependencies: ["lyricsbar"]),
+        .executableTarget(name: "echofloat"),
+        .testTarget(name: "echofloatTests", dependencies: ["echofloat"]),
     ]
 )
 ```
@@ -128,7 +128,7 @@ let package = Package(
 - [ ] **Step 2: Write a minimal `AppDelegate`**
 
 ```swift
-// Sources/lyricsbar/App/AppDelegate.swift
+// Sources/echofloat/App/AppDelegate.swift
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -137,9 +137,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "music.note.list", accessibilityDescription: "LyricsBar")
+        item.button?.image = NSImage(systemSymbolName: "music.note.list", accessibilityDescription: "Echofloat")
         let menu = NSMenu()
-        let quitItem = NSMenuItem(title: "Quit LyricsBar", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit Echofloat", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
         item.menu = menu
@@ -155,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 - [ ] **Step 3: Write the entry point**
 
 ```swift
-// Sources/lyricsbar/App/main.swift
+// Sources/echofloat/App/main.swift
 import AppKit
 
 let delegate = AppDelegate()
@@ -170,14 +170,14 @@ Run: `swift build`
 Expected: builds with no errors.
 
 Run: `swift run &` then check the menu bar for a music-note icon; click it,
-confirm "Quit LyricsBar" appears and quits the app. Then run
+confirm "Quit Echofloat" appears and quits the app. Then run
 `kill %1` if the background job is still around.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Package.swift Sources/lyricsbar/App
-git commit -m "feat: scaffold lyricsbar SPM executable with menu bar stub"
+git add Package.swift Sources/echofloat/App
+git commit -m "feat: scaffold echofloat SPM executable with menu bar stub"
 ```
 
 ---
@@ -185,11 +185,11 @@ git commit -m "feat: scaffold lyricsbar SPM executable with menu bar stub"
 ### Task 2: Core models
 
 **Files:**
-- Create: `Sources/lyricsbar/Models/TrackSignature.swift`
-- Create: `Sources/lyricsbar/Models/NowPlayingState.swift`
-- Create: `Sources/lyricsbar/Models/LyricLine.swift`
-- Create: `Sources/lyricsbar/Models/LyricsResult.swift`
-- Test: `Tests/lyricsbarTests/TrackSignatureTests.swift`
+- Create: `Sources/echofloat/Models/TrackSignature.swift`
+- Create: `Sources/echofloat/Models/NowPlayingState.swift`
+- Create: `Sources/echofloat/Models/LyricLine.swift`
+- Create: `Sources/echofloat/Models/LyricsResult.swift`
+- Test: `Tests/echofloatTests/TrackSignatureTests.swift`
 
 **Interfaces:**
 - Produces: `TrackSignature { title, artist, album, durationSeconds, cacheKey }`,
@@ -201,9 +201,9 @@ git commit -m "feat: scaffold lyricsbar SPM executable with menu bar stub"
 - [ ] **Step 1: Write the failing test for `TrackSignature.cacheKey`**
 
 ```swift
-// Tests/lyricsbarTests/TrackSignatureTests.swift
+// Tests/echofloatTests/TrackSignatureTests.swift
 import Testing
-@testable import lyricsbar
+@testable import echofloat
 
 @Test func cacheKeyNormalizesCaseAndWhitespace() {
     let a = TrackSignature(title: " Hello World ", artist: "The Band", album: nil, durationSeconds: nil)
@@ -226,7 +226,7 @@ Expected: FAIL — `TrackSignature` not defined.
 - [ ] **Step 3: Write the models**
 
 ```swift
-// Sources/lyricsbar/Models/TrackSignature.swift
+// Sources/echofloat/Models/TrackSignature.swift
 import Foundation
 
 struct TrackSignature: Hashable, Codable {
@@ -244,7 +244,7 @@ struct TrackSignature: Hashable, Codable {
 ```
 
 ```swift
-// Sources/lyricsbar/Models/NowPlayingState.swift
+// Sources/echofloat/Models/NowPlayingState.swift
 import Foundation
 
 struct NowPlayingState: Equatable {
@@ -263,7 +263,7 @@ struct NowPlayingState: Equatable {
 ```
 
 ```swift
-// Sources/lyricsbar/Models/LyricLine.swift
+// Sources/echofloat/Models/LyricLine.swift
 import Foundation
 
 struct LyricLine: Equatable, Codable {
@@ -273,7 +273,7 @@ struct LyricLine: Equatable, Codable {
 ```
 
 ```swift
-// Sources/lyricsbar/Models/LyricsResult.swift
+// Sources/echofloat/Models/LyricsResult.swift
 enum LyricsResult: Equatable {
     case synced([LyricLine])
     case plain(String)
@@ -289,7 +289,7 @@ Expected: PASS (2 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/Models Tests/lyricsbarTests/TrackSignatureTests.swift
+git add Sources/echofloat/Models Tests/echofloatTests/TrackSignatureTests.swift
 git commit -m "feat: add core track/lyrics models"
 ```
 
@@ -298,8 +298,8 @@ git commit -m "feat: add core track/lyrics models"
 ### Task 3: LRC lyrics parser
 
 **Files:**
-- Create: `Sources/lyricsbar/Lyrics/LRCParser.swift`
-- Test: `Tests/lyricsbarTests/LRCParserTests.swift`
+- Create: `Sources/echofloat/Lyrics/LRCParser.swift`
+- Test: `Tests/echofloatTests/LRCParserTests.swift`
 
 **Interfaces:**
 - Consumes: `LyricLine` from Task 2.
@@ -309,9 +309,9 @@ git commit -m "feat: add core track/lyrics models"
 - [ ] **Step 1: Write the failing tests**
 
 ```swift
-// Tests/lyricsbarTests/LRCParserTests.swift
+// Tests/echofloatTests/LRCParserTests.swift
 import Testing
-@testable import lyricsbar
+@testable import echofloat
 
 @Test func parsesTimestampedLines() {
     let raw = "[00:12.00]Line one\n[00:17.50]Line two\n"
@@ -360,7 +360,7 @@ Expected: FAIL — `LRCParser` not defined.
 - [ ] **Step 3: Write the parser**
 
 ```swift
-// Sources/lyricsbar/Lyrics/LRCParser.swift
+// Sources/echofloat/Lyrics/LRCParser.swift
 import Foundation
 
 enum LRCParser {
@@ -408,7 +408,7 @@ Expected: PASS (5 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/Lyrics/LRCParser.swift Tests/lyricsbarTests/LRCParserTests.swift
+git add Sources/echofloat/Lyrics/LRCParser.swift Tests/echofloatTests/LRCParserTests.swift
 git commit -m "feat: add LRC lyrics parser"
 ```
 
@@ -417,9 +417,9 @@ git commit -m "feat: add LRC lyrics parser"
 ### Task 4: LRCLIB lyrics provider
 
 **Files:**
-- Create: `Sources/lyricsbar/Lyrics/LyricsProvider.swift`
-- Create: `Sources/lyricsbar/Lyrics/LRCLibProvider.swift`
-- Test: `Tests/lyricsbarTests/LRCLibProviderTests.swift`
+- Create: `Sources/echofloat/Lyrics/LyricsProvider.swift`
+- Create: `Sources/echofloat/Lyrics/LRCLibProvider.swift`
+- Test: `Tests/echofloatTests/LRCLibProviderTests.swift`
 
 **Interfaces:**
 - Consumes: `TrackSignature`, `LyricsResult`, `LRCParser.parse` from Tasks 2-3.
@@ -431,10 +431,10 @@ git commit -m "feat: add LRC lyrics parser"
 - [ ] **Step 1: Write the failing tests**
 
 ```swift
-// Tests/lyricsbarTests/LRCLibProviderTests.swift
+// Tests/echofloatTests/LRCLibProviderTests.swift
 import Foundation
 import Testing
-@testable import lyricsbar
+@testable import echofloat
 
 private struct FakeHTTPClient: HTTPClient {
     let statusCode: Int
@@ -490,7 +490,7 @@ Expected: FAIL — `LyricsProvider`/`LRCLibProvider`/`HTTPClient` not defined.
 - [ ] **Step 3: Write the provider**
 
 ```swift
-// Sources/lyricsbar/Lyrics/LyricsProvider.swift
+// Sources/echofloat/Lyrics/LyricsProvider.swift
 import Foundation
 
 protocol LyricsProvider {
@@ -509,7 +509,7 @@ extension URLSession: HTTPClient {
 ```
 
 ```swift
-// Sources/lyricsbar/Lyrics/LRCLibProvider.swift
+// Sources/echofloat/Lyrics/LRCLibProvider.swift
 import Foundation
 
 struct LRCLibProvider: LyricsProvider {
@@ -572,7 +572,7 @@ Expected: PASS (4 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/Lyrics/LyricsProvider.swift Sources/lyricsbar/Lyrics/LRCLibProvider.swift Tests/lyricsbarTests/LRCLibProviderTests.swift
+git add Sources/echofloat/Lyrics/LyricsProvider.swift Sources/echofloat/Lyrics/LRCLibProvider.swift Tests/echofloatTests/LRCLibProviderTests.swift
 git commit -m "feat: add LRCLIB-backed lyrics provider"
 ```
 
@@ -581,8 +581,8 @@ git commit -m "feat: add LRCLIB-backed lyrics provider"
 ### Task 5: Disk lyrics cache
 
 **Files:**
-- Create: `Sources/lyricsbar/Lyrics/LyricsCache.swift`
-- Test: `Tests/lyricsbarTests/LyricsCacheTests.swift`
+- Create: `Sources/echofloat/Lyrics/LyricsCache.swift`
+- Test: `Tests/echofloatTests/LyricsCacheTests.swift`
 
 **Interfaces:**
 - Consumes: `TrackSignature`, `LyricsResult`, `LyricLine` from Task 2.
@@ -592,10 +592,10 @@ git commit -m "feat: add LRCLIB-backed lyrics provider"
 - [ ] **Step 1: Write the failing tests**
 
 ```swift
-// Tests/lyricsbarTests/LyricsCacheTests.swift
+// Tests/echofloatTests/LyricsCacheTests.swift
 import Foundation
 import Testing
-@testable import lyricsbar
+@testable import echofloat
 
 private func makeTempCache() -> LyricsCache {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -632,7 +632,7 @@ Expected: FAIL — `LyricsCache` not defined.
 - [ ] **Step 3: Write the cache**
 
 ```swift
-// Sources/lyricsbar/Lyrics/LyricsCache.swift
+// Sources/echofloat/Lyrics/LyricsCache.swift
 import Foundation
 
 final class LyricsCache {
@@ -693,7 +693,7 @@ Expected: PASS (3 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/Lyrics/LyricsCache.swift Tests/lyricsbarTests/LyricsCacheTests.swift
+git add Sources/echofloat/Lyrics/LyricsCache.swift Tests/echofloatTests/LyricsCacheTests.swift
 git commit -m "feat: add on-disk lyrics cache"
 ```
 
@@ -702,10 +702,10 @@ git commit -m "feat: add on-disk lyrics cache"
 ### Task 6: Music source abstraction + system Now Playing bridge
 
 **Files:**
-- Create: `Sources/lyricsbar/MediaSources/MusicSource.swift`
-- Create: `Sources/lyricsbar/MediaSources/MediaRemoteClient.swift`
-- Create: `Sources/lyricsbar/MediaSources/SystemNowPlayingSource.swift`
-- Test: `Tests/lyricsbarTests/SystemNowPlayingSourceTests.swift`
+- Create: `Sources/echofloat/MediaSources/MusicSource.swift`
+- Create: `Sources/echofloat/MediaSources/MediaRemoteClient.swift`
+- Create: `Sources/echofloat/MediaSources/SystemNowPlayingSource.swift`
+- Test: `Tests/echofloatTests/SystemNowPlayingSourceTests.swift`
 
 **Interfaces:**
 - Consumes: `NowPlayingState`, `TrackSignature` from Task 2.
@@ -730,10 +730,10 @@ and `PlayerViewModel` never see raw MediaRemote details.
 - [ ] **Step 1: Write the failing tests using a fake client**
 
 ```swift
-// Tests/lyricsbarTests/SystemNowPlayingSourceTests.swift
+// Tests/echofloatTests/SystemNowPlayingSourceTests.swift
 import Foundation
 import Testing
-@testable import lyricsbar
+@testable import echofloat
 
 private final class FakeMediaRemoteClient: MediaRemoteClient {
     var registeredHandler: ((NowPlayingState?) -> Void)?
@@ -786,7 +786,7 @@ Expected: FAIL — types not defined.
 - [ ] **Step 3: Write the protocol and source**
 
 ```swift
-// Sources/lyricsbar/MediaSources/MusicSource.swift
+// Sources/echofloat/MediaSources/MusicSource.swift
 import Foundation
 
 protocol MusicSource {
@@ -799,7 +799,7 @@ protocol MusicSource {
 ```
 
 ```swift
-// Sources/lyricsbar/MediaSources/MediaRemoteClient.swift
+// Sources/echofloat/MediaSources/MediaRemoteClient.swift
 import Foundation
 
 enum MediaRemoteCommand {
@@ -895,7 +895,7 @@ final class LiveMediaRemoteClient: MediaRemoteClient {
 ```
 
 ```swift
-// Sources/lyricsbar/MediaSources/SystemNowPlayingSource.swift
+// Sources/echofloat/MediaSources/SystemNowPlayingSource.swift
 import Foundation
 
 final class SystemNowPlayingSource: MusicSource {
@@ -929,7 +929,7 @@ Expected: PASS (2 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/MediaSources Tests/lyricsbarTests/SystemNowPlayingSourceTests.swift
+git add Sources/echofloat/MediaSources Tests/echofloatTests/SystemNowPlayingSourceTests.swift
 git commit -m "feat: add MusicSource protocol and MediaRemote-backed implementation"
 ```
 
@@ -938,9 +938,9 @@ git commit -m "feat: add MusicSource protocol and MediaRemote-backed implementat
 ### Task 7: Theme model and ThemeManager
 
 **Files:**
-- Create: `Sources/lyricsbar/Theming/Theme.swift`
-- Create: `Sources/lyricsbar/Theming/ThemeManager.swift`
-- Test: `Tests/lyricsbarTests/ThemeManagerTests.swift`
+- Create: `Sources/echofloat/Theming/Theme.swift`
+- Create: `Sources/echofloat/Theming/ThemeManager.swift`
+- Test: `Tests/echofloatTests/ThemeManagerTests.swift`
 
 **Interfaces:**
 - Produces: `struct Theme { id, name, backgroundColors: [String], accentColorHex: String, blurIntensity: Double, motif: Theme.Motif }`
@@ -952,10 +952,10 @@ git commit -m "feat: add MusicSource protocol and MediaRemote-backed implementat
 - [ ] **Step 1: Write the failing tests**
 
 ```swift
-// Tests/lyricsbarTests/ThemeManagerTests.swift
+// Tests/echofloatTests/ThemeManagerTests.swift
 import Foundation
 import Testing
-@testable import lyricsbar
+@testable import echofloat
 
 @Test func exposesExactlyTwoBuiltInThemes() {
     #expect(Theme.builtIn.count == 2)
@@ -963,13 +963,13 @@ import Testing
 }
 
 @Test func defaultsToAuroraGlassWhenNothingPersisted() {
-    let defaults = UserDefaults(suiteName: "lyricsbar-tests-\(UUID().uuidString)")!
+    let defaults = UserDefaults(suiteName: "echofloat-tests-\(UUID().uuidString)")!
     let manager = ThemeManager(defaults: defaults)
     #expect(manager.current.id == "aurora-glass")
 }
 
 @Test func selectingThemePersistsAcrossInstances() {
-    let suiteName = "lyricsbar-tests-\(UUID().uuidString)"
+    let suiteName = "echofloat-tests-\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suiteName)!
     let manager = ThemeManager(defaults: defaults)
     manager.select(.neonArcade)
@@ -988,7 +988,7 @@ Expected: FAIL — `Theme`/`ThemeManager` not defined.
 - [ ] **Step 3: Write the theme model and manager**
 
 ```swift
-// Sources/lyricsbar/Theming/Theme.swift
+// Sources/echofloat/Theming/Theme.swift
 struct Theme: Identifiable, Equatable {
     enum Motif: Equatable {
         case none
@@ -1025,13 +1025,13 @@ struct Theme: Identifiable, Equatable {
 ```
 
 ```swift
-// Sources/lyricsbar/Theming/ThemeManager.swift
+// Sources/echofloat/Theming/ThemeManager.swift
 import Foundation
 
 final class ThemeManager: ObservableObject {
     @Published private(set) var current: Theme
     private let defaults: UserDefaults
-    private static let key = "lyricsbar.selectedThemeID"
+    private static let key = "echofloat.selectedThemeID"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -1054,7 +1054,7 @@ Expected: PASS (3 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/Theming Tests/lyricsbarTests/ThemeManagerTests.swift
+git add Sources/echofloat/Theming Tests/echofloatTests/ThemeManagerTests.swift
 git commit -m "feat: add Theme model and persisted ThemeManager"
 ```
 
@@ -1063,8 +1063,8 @@ git commit -m "feat: add Theme model and persisted ThemeManager"
 ### Task 8: PlayerViewModel
 
 **Files:**
-- Create: `Sources/lyricsbar/ViewModel/PlayerViewModel.swift`
-- Test: `Tests/lyricsbarTests/PlayerViewModelTests.swift`
+- Create: `Sources/echofloat/ViewModel/PlayerViewModel.swift`
+- Test: `Tests/echofloatTests/PlayerViewModelTests.swift`
 
 **Interfaces:**
 - Consumes: `MusicSource` (Task 6), `LyricsProvider` (Task 4), `LyricsCache`
@@ -1075,10 +1075,10 @@ git commit -m "feat: add Theme model and persisted ThemeManager"
 - [ ] **Step 1: Write the failing tests using fakes**
 
 ```swift
-// Tests/lyricsbarTests/PlayerViewModelTests.swift
+// Tests/echofloatTests/PlayerViewModelTests.swift
 import Foundation
 import Testing
-@testable import lyricsbar
+@testable import echofloat
 
 private final class FakeMusicSource: MusicSource {
     private let (stream, continuation) = AsyncStream<NowPlayingState?>.makeStream()
@@ -1189,7 +1189,7 @@ Expected: FAIL — `PlayerViewModel` not defined.
 - [ ] **Step 3: Write the view model**
 
 ```swift
-// Sources/lyricsbar/ViewModel/PlayerViewModel.swift
+// Sources/echofloat/ViewModel/PlayerViewModel.swift
 import Foundation
 
 @MainActor
@@ -1276,7 +1276,7 @@ Expected: PASS (4 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/ViewModel Tests/lyricsbarTests/PlayerViewModelTests.swift
+git add Sources/echofloat/ViewModel Tests/echofloatTests/PlayerViewModelTests.swift
 git commit -m "feat: add PlayerViewModel tying music source, lyrics, and cache together"
 ```
 
@@ -1285,9 +1285,9 @@ git commit -m "feat: add PlayerViewModel tying music source, lyrics, and cache t
 ### Task 9: Notch-aware overlay geometry
 
 **Files:**
-- Create: `Sources/lyricsbar/Overlay/ScreenMetrics.swift`
-- Create: `Sources/lyricsbar/Overlay/NotchGeometry.swift`
-- Test: `Tests/lyricsbarTests/NotchGeometryTests.swift`
+- Create: `Sources/echofloat/Overlay/ScreenMetrics.swift`
+- Create: `Sources/echofloat/Overlay/NotchGeometry.swift`
+- Test: `Tests/echofloatTests/NotchGeometryTests.swift`
 
 **Interfaces:**
 - Produces: `struct ScreenMetrics { frame: CGRect, notchLeftMaxX: CGFloat?, notchRightMinX: CGFloat? }` (plus an `NSScreen` initializer added in
@@ -1298,10 +1298,10 @@ git commit -m "feat: add PlayerViewModel tying music source, lyrics, and cache t
 - [ ] **Step 1: Write the failing tests**
 
 ```swift
-// Tests/lyricsbarTests/NotchGeometryTests.swift
+// Tests/echofloatTests/NotchGeometryTests.swift
 import Foundation
 import Testing
-@testable import lyricsbar
+@testable import echofloat
 
 @Test func centersOnScreenWhenNoNotchPresent() {
     let screen = ScreenMetrics(frame: CGRect(x: 0, y: 0, width: 1000, height: 700), notchLeftMaxX: nil, notchRightMinX: nil)
@@ -1328,7 +1328,7 @@ Expected: FAIL — types not defined.
 - [ ] **Step 3: Write the geometry types**
 
 ```swift
-// Sources/lyricsbar/Overlay/ScreenMetrics.swift
+// Sources/echofloat/Overlay/ScreenMetrics.swift
 import Foundation
 
 struct ScreenMetrics: Equatable {
@@ -1339,7 +1339,7 @@ struct ScreenMetrics: Equatable {
 ```
 
 ```swift
-// Sources/lyricsbar/Overlay/NotchGeometry.swift
+// Sources/echofloat/Overlay/NotchGeometry.swift
 import Foundation
 
 enum NotchGeometry {
@@ -1366,7 +1366,7 @@ Expected: PASS (2 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/Overlay/ScreenMetrics.swift Sources/lyricsbar/Overlay/NotchGeometry.swift Tests/lyricsbarTests/NotchGeometryTests.swift
+git add Sources/echofloat/Overlay/ScreenMetrics.swift Sources/echofloat/Overlay/NotchGeometry.swift Tests/echofloatTests/NotchGeometryTests.swift
 git commit -m "feat: add notch-aware overlay geometry calculation"
 ```
 
@@ -1375,14 +1375,14 @@ git commit -m "feat: add notch-aware overlay geometry calculation"
 ### Task 10: Liquid-glass overlay UI and window controller
 
 **Files:**
-- Create: `Sources/lyricsbar/Overlay/ColorHex.swift`
-- Create: `Sources/lyricsbar/Overlay/VisualEffectBlur.swift`
-- Create: `Sources/lyricsbar/Overlay/NeonGridMotif.swift`
-- Create: `Sources/lyricsbar/Overlay/LiquidGlassBackground.swift`
-- Create: `Sources/lyricsbar/Overlay/CollapsedPillView.swift`
-- Create: `Sources/lyricsbar/Overlay/ExpandedLyricsPanelView.swift`
-- Create: `Sources/lyricsbar/Overlay/OverlayWindowController.swift`
-- Modify: `Sources/lyricsbar/Overlay/ScreenMetrics.swift` (add `NSScreen`
+- Create: `Sources/echofloat/Overlay/ColorHex.swift`
+- Create: `Sources/echofloat/Overlay/VisualEffectBlur.swift`
+- Create: `Sources/echofloat/Overlay/NeonGridMotif.swift`
+- Create: `Sources/echofloat/Overlay/LiquidGlassBackground.swift`
+- Create: `Sources/echofloat/Overlay/CollapsedPillView.swift`
+- Create: `Sources/echofloat/Overlay/ExpandedLyricsPanelView.swift`
+- Create: `Sources/echofloat/Overlay/OverlayWindowController.swift`
+- Modify: `Sources/echofloat/Overlay/ScreenMetrics.swift` (add `NSScreen`
   initializer)
 - Test: none — AppKit windows/screens aren't unit-testable outside a GUI
   session; this task is verified manually (see Step 6).
@@ -1396,7 +1396,7 @@ git commit -m "feat: add notch-aware overlay geometry calculation"
 - [ ] **Step 1: Add the `NSScreen` initializer to `ScreenMetrics`**
 
 ```swift
-// Append to Sources/lyricsbar/Overlay/ScreenMetrics.swift
+// Append to Sources/echofloat/Overlay/ScreenMetrics.swift
 import AppKit
 
 extension ScreenMetrics {
@@ -1415,7 +1415,7 @@ and `import AppKit`.)
 - [ ] **Step 2: Write hex color, blur, and motif helpers**
 
 ```swift
-// Sources/lyricsbar/Overlay/ColorHex.swift
+// Sources/echofloat/Overlay/ColorHex.swift
 import SwiftUI
 
 extension Color {
@@ -1432,7 +1432,7 @@ extension Color {
 ```
 
 ```swift
-// Sources/lyricsbar/Overlay/VisualEffectBlur.swift
+// Sources/echofloat/Overlay/VisualEffectBlur.swift
 import AppKit
 import SwiftUI
 
@@ -1456,7 +1456,7 @@ struct VisualEffectBlur: NSViewRepresentable {
 ```
 
 ```swift
-// Sources/lyricsbar/Overlay/NeonGridMotif.swift
+// Sources/echofloat/Overlay/NeonGridMotif.swift
 import SwiftUI
 
 struct NeonGridMotif: View {
@@ -1481,7 +1481,7 @@ struct NeonGridMotif: View {
 - [ ] **Step 3: Write the liquid-glass background and pill/panel views**
 
 ```swift
-// Sources/lyricsbar/Overlay/LiquidGlassBackground.swift
+// Sources/echofloat/Overlay/LiquidGlassBackground.swift
 import SwiftUI
 
 struct LiquidGlassBackground: View {
@@ -1505,7 +1505,7 @@ struct LiquidGlassBackground: View {
 ```
 
 ```swift
-// Sources/lyricsbar/Overlay/CollapsedPillView.swift
+// Sources/echofloat/Overlay/CollapsedPillView.swift
 import SwiftUI
 
 struct CollapsedPillView: View {
@@ -1538,7 +1538,7 @@ struct CollapsedPillView: View {
 ```
 
 ```swift
-// Sources/lyricsbar/Overlay/ExpandedLyricsPanelView.swift
+// Sources/echofloat/Overlay/ExpandedLyricsPanelView.swift
 import SwiftUI
 
 struct ExpandedLyricsPanelView: View {
@@ -1599,7 +1599,7 @@ struct ExpandedLyricsPanelView: View {
 - [ ] **Step 4: Write the per-screen window controller**
 
 ```swift
-// Sources/lyricsbar/Overlay/OverlayWindowController.swift
+// Sources/echofloat/Overlay/OverlayWindowController.swift
 import AppKit
 import SwiftUI
 
@@ -1686,7 +1686,7 @@ Stop the run afterward: `kill %1`.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add Sources/lyricsbar/Overlay
+git add Sources/echofloat/Overlay
 git commit -m "feat: add liquid-glass overlay views and per-screen window controller"
 ```
 
@@ -1695,8 +1695,8 @@ git commit -m "feat: add liquid-glass overlay views and per-screen window contro
 ### Task 11: Autostart (Launch at Login) manager
 
 **Files:**
-- Create: `Sources/lyricsbar/Support/AutostartManager.swift`
-- Test: `Tests/lyricsbarTests/AutostartManagerTests.swift`
+- Create: `Sources/echofloat/Support/AutostartManager.swift`
+- Test: `Tests/echofloatTests/AutostartManagerTests.swift`
 
 **Interfaces:**
 - Produces: `final class AutostartManager { init(launchAgentsDirectory: URL = ..., fileManager: FileManager = .default, executablePath: @escaping () -> String = ...); var isEnabled: Bool; func plistContents() -> String }`.
@@ -1705,13 +1705,13 @@ git commit -m "feat: add liquid-glass overlay views and per-screen window contro
 - [ ] **Step 1: Write the failing tests**
 
 ```swift
-// Tests/lyricsbarTests/AutostartManagerTests.swift
+// Tests/echofloatTests/AutostartManagerTests.swift
 import Foundation
 import Testing
-@testable import lyricsbar
+@testable import echofloat
 
 private func makeManager(in directory: URL) -> AutostartManager {
-    AutostartManager(launchAgentsDirectory: directory, executablePath: { "/usr/local/bin/lyricsbar" })
+    AutostartManager(launchAgentsDirectory: directory, executablePath: { "/usr/local/bin/echofloat" })
 }
 
 @Test func startsDisabledWhenNoPlistExists() {
@@ -1726,9 +1726,9 @@ private func makeManager(in directory: URL) -> AutostartManager {
     manager.isEnabled = true
     #expect(manager.isEnabled == true)
 
-    let plistPath = dir.appendingPathComponent("com.lyricsbar.autostart.plist")
+    let plistPath = dir.appendingPathComponent("com.echofloat.autostart.plist")
     let contents = try! String(contentsOf: plistPath, encoding: .utf8)
-    #expect(contents.contains("/usr/local/bin/lyricsbar"))
+    #expect(contents.contains("/usr/local/bin/echofloat"))
 }
 
 @Test func disablingRemovesPlist() {
@@ -1748,11 +1748,11 @@ Expected: FAIL — `AutostartManager` not defined.
 - [ ] **Step 3: Write the manager**
 
 ```swift
-// Sources/lyricsbar/Support/AutostartManager.swift
+// Sources/echofloat/Support/AutostartManager.swift
 import Foundation
 
 final class AutostartManager {
-    private let label = "com.lyricsbar.autostart"
+    private let label = "com.echofloat.autostart"
     private let launchAgentsDirectory: URL
     private let fileManager: FileManager
     private let executablePath: () -> String
@@ -1821,7 +1821,7 @@ Expected: PASS (3 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/Support/AutostartManager.swift Tests/lyricsbarTests/AutostartManagerTests.swift
+git add Sources/echofloat/Support/AutostartManager.swift Tests/echofloatTests/AutostartManagerTests.swift
 git commit -m "feat: add Launch at Login autostart manager"
 ```
 
@@ -1830,8 +1830,8 @@ git commit -m "feat: add Launch at Login autostart manager"
 ### Task 12: Menu bar controller and full app wiring
 
 **Files:**
-- Create: `Sources/lyricsbar/MenuBar/StatusItemController.swift`
-- Modify: `Sources/lyricsbar/App/AppDelegate.swift` (replace the Task 1 stub
+- Create: `Sources/echofloat/MenuBar/StatusItemController.swift`
+- Modify: `Sources/echofloat/App/AppDelegate.swift` (replace the Task 1 stub
   with full wiring)
 - Test: none — this task is integration wiring, verified by the manual
   smoke test in Step 3.
@@ -1844,7 +1844,7 @@ git commit -m "feat: add Launch at Login autostart manager"
 - [ ] **Step 1: Write the status item controller**
 
 ```swift
-// Sources/lyricsbar/MenuBar/StatusItemController.swift
+// Sources/echofloat/MenuBar/StatusItemController.swift
 import AppKit
 
 @MainActor
@@ -1863,7 +1863,7 @@ final class StatusItemController {
         self.overlayController = overlayController
         self.autostartManager = autostartManager
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "music.note.list", accessibilityDescription: "LyricsBar")
+        statusItem.button?.image = NSImage(systemSymbolName: "music.note.list", accessibilityDescription: "Echofloat")
         buildMenu()
     }
 
@@ -1898,7 +1898,7 @@ final class StatusItemController {
 
         menu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Quit LyricsBar", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit Echofloat", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
@@ -1931,7 +1931,7 @@ final class StatusItemController {
 - [ ] **Step 2: Replace the `AppDelegate` stub with full wiring**
 
 ```swift
-// Sources/lyricsbar/App/AppDelegate.swift
+// Sources/echofloat/App/AppDelegate.swift
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -1943,14 +1943,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         guard let mediaRemoteClient = LiveMediaRemoteClient() else {
-            NSLog("LyricsBar: MediaRemote framework unavailable; now-playing detection disabled")
+            NSLog("Echofloat: MediaRemote framework unavailable; now-playing detection disabled")
             return
         }
 
         let musicSource = SystemNowPlayingSource(client: mediaRemoteClient)
         let cacheDirectory = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("LyricsBar/LyricsCache", isDirectory: true)
+            .appendingPathComponent("Echofloat/LyricsCache", isDirectory: true)
         let cache = LyricsCache(directory: cacheDirectory)
         let lyricsProvider = LRCLibProvider()
 
@@ -1979,7 +1979,7 @@ Run: `swift build`
 Expected: builds with no errors.
 
 Run: `swift run &`, then verify:
-1. Menu bar shows the LyricsBar icon; clicking it shows Theme submenu (2
+1. Menu bar shows the Echofloat icon; clicking it shows Theme submenu (2
    themes), "Show on Active Display Only", "Launch at Login", and Quit.
 2. Play any track in a browser tab at `music.youtube.com` (or Spotify/Apple
    Music) — within a few seconds the overlay pill updates to show the track
@@ -1988,7 +1988,7 @@ Run: `swift run &`, then verify:
 3. Selecting "Neon Arcade" from the Theme submenu changes the overlay's
    background/accent color.
 4. Toggling "Launch at Login" creates/removes
-   `~/Library/LaunchAgents/com.lyricsbar.autostart.plist` — confirm with
+   `~/Library/LaunchAgents/com.echofloat.autostart.plist` — confirm with
    `ls ~/Library/LaunchAgents/`.
 5. Quit via the menu.
 
@@ -2000,7 +2000,7 @@ Expected: all tests from Tasks 2-9 and 11 PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/lyricsbar/MenuBar Sources/lyricsbar/App/AppDelegate.swift
+git add Sources/echofloat/MenuBar Sources/echofloat/App/AppDelegate.swift
 git commit -m "feat: wire menu bar controller and full app startup"
 ```
 

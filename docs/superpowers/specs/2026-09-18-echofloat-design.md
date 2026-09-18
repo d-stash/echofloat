@@ -1,4 +1,4 @@
-# LyricsBar — Design Spec
+# Echofloat — Design Spec
 
 Status: **Draft, awaiting owner review.** The user was unavailable mid-session,
 so every decision below was made autonomously with the best available
@@ -16,7 +16,7 @@ more). v1 music source: YouTube Music. Architecture designed so more sources
 code.
 
 Reference/precedent in this workspace: `../top-notch` — a dependency-free
-Swift/AppKit/SwiftUI menu-bar notch app. LyricsBar reuses its proven
+Swift/AppKit/SwiftUI menu-bar notch app. Echofloat reuses its proven
 techniques (notch geometry anchoring, click-through `NSPanel`, status item,
 launchd autostart) but is a **new, separate project**, not a fork.
 
@@ -60,7 +60,7 @@ Multi-file Swift package (unlike `top-notch`'s single 2,453-line file — split
 here for maintainability since this app has more moving parts):
 
 ```
-Sources/lyricsbar/
+Sources/echofloat/
   App/            AppDelegate, entry point
   MediaSources/   MusicSource protocol + SystemNowPlayingSource (MediaRemote wrapper)
   Lyrics/         LyricsProvider protocol + LRCLibProvider, LyricLine model, on-disk cache
@@ -126,7 +126,7 @@ nekoribocchi) is a tiny, early-stage package with just a couple of
 bar/button components, not vetted for this app's custom notch-anchoring and
 click-through needs. `top-notch` already proves this look is achievable with
 zero dependencies using native `.ultraThinMaterial`/`NSVisualEffectView`, so
-LyricsBar does the same. Theme motifs (neon grid, particle glow) are
+Echofloat does the same. Theme motifs (neon grid, particle glow) are
 hand-rolled procedural SwiftUI `Canvas`/`Shape` code, not external
 art/asset packs — avoids license risk and keeps the zero-dependency
 philosophy from `top-notch` intact.
