@@ -86,9 +86,19 @@ protocol LyricsProvider {
 ```
 
 v1 ships one implementation of each (`SystemNowPlayingSource`,
-`LRCLibProvider`). Adding Spotify/Apple Music/`ytmdesktop` later means adding
-a new `MusicSource` conformance — no changes to overlay, theming, or menu bar
-code.
+`LRCLibProvider`).
+
+**Multi-app support is mostly already included, not a future task:**
+MediaRemote is an OS-level layer, not per-app — Spotify, Apple Music, and any
+browser tab (YouTube Music, Tidal, etc.) already register their track
+info/play-pause-next-prev with it via the system Media Session API. So
+`SystemNowPlayingSource` transparently works across all of them the moment it
+ships; there is no YouTube-Music-specific code to swap out. The `MusicSource`
+protocol exists for the genuine future exceptions: an app-specific
+integration (e.g., `ytmdesktop`'s companion API) that wants richer data than
+MediaRemote exposes (queue, precise seek, lyrics endpoints), or an app that
+doesn't register with Now Playing at all. Those would be added as a new
+`MusicSource` conformance — no changes to overlay, theming, or menu bar code.
 
 ## 5. Overlay UI (the "dynamic island" feel)
 
@@ -135,8 +145,9 @@ prompts, matching `top-notch`'s zero-friction convention.
 
 - No login/session-token screen (see §2's rationale).
 - No `ytmdesktop` companion API integration yet — placeholder architecture
-  only.
-- No Spotify/Apple Music sources yet — architecture supports them, not built.
+  only (only needed for richer-than-MediaRemote data).
+- Spotify/Apple Music already work via `SystemNowPlayingSource` (see §4) —
+  no dedicated build-out needed, just untested until v1 ships.
 - Only 2 themes.
 - macOS only (matches `top-notch`; no cross-platform ask was made).
 
