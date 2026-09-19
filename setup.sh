@@ -15,7 +15,17 @@ require_safe_install_dir() {
     local dir="$1"
 
     [[ -n "$dir" ]] || die "Install directory must not be empty."
-    [[ "$dir" != "/" ]] || die "Refusing to install to /."
+}
+
+resolve_install_dir() {
+    local dir="$1"
+    local resolved
+
+    require_safe_install_dir "$dir"
+    mkdir -p "$dir"
+    resolved="$(/bin/realpath "$dir")" || die "Unable to resolve install directory: $dir"
+    [[ "$resolved" != "/" ]] || die "Refusing to install to /."
+    printf '%s\n' "$resolved"
 }
 
 safe_remove_tree() {
@@ -52,7 +62,7 @@ while (($#)); do
     esac
 done
 
-require_safe_install_dir "$INSTALL_DIR"
+INSTALL_DIR="$(resolve_install_dir "$INSTALL_DIR")"
 
 if $RUN_TESTS; then
     (

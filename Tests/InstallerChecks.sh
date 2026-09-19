@@ -4,8 +4,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_ROOT="$ROOT/.build/installer-tests"
 HOME_ROOT="$TMP_ROOT/home"
-INSTALL_DIR="$TMP_ROOT/Applications"
-APP="$INSTALL_DIR/Echofloat.app"
+REAL_INSTALL_DIR="$TMP_ROOT/real-apps"
+INSTALL_DIR="$TMP_ROOT/link-apps"
+ROOT_INSTALL_LINK="$TMP_ROOT/root-apps"
+APP="$REAL_INSTALL_DIR/Echofloat.app"
 SUPPORT_DIR="$HOME_ROOT/Library/Application Support/Echofloat"
 SUPPORT_FILE="$SUPPORT_DIR/LyricsCache/keep.txt"
 LAUNCH_AGENT="$HOME_ROOT/Library/LaunchAgents/com.echofloat.autostart.plist"
@@ -16,10 +18,42 @@ LAUNCH_AGENT="$HOME_ROOT/Library/LaunchAgents/com.echofloat.autostart.plist"
 }
 
 rm -rf "$TMP_ROOT"
-mkdir -p "$HOME_ROOT" "$INSTALL_DIR"
+mkdir -p "$HOME_ROOT" "$REAL_INSTALL_DIR"
+ln -s "$REAL_INSTALL_DIR" "$INSTALL_DIR"
+ln -s / "$ROOT_INSTALL_LINK"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
-HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
+expect_failure() {
+    local expected="$1"
+    shift
+    local output
+
+    if output="$("$@" 2>&1)"; then
+        echo "Expected command to fail: $*" >&2
+        exit 1
+    fi
+
+    case "$output" in
+        *"$expected"*) ;;
+        *)
+            echo "Expected failure output to contain: $expected" >&2
+            echo "$output" >&2
+            exit 1
+            ;;
+    esac
+}
+
+setup_output="$(
+    HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
+)"
+case "$setup_output" in
+    *"Echofloat installed at $REAL_INSTALL_DIR/Echofloat.app"*) ;;
+    *)
+        echo "Expected canonical install path in setup output" >&2
+        echo "$setup_output" >&2
+        exit 1
+        ;;
+esac
 
 test -d "$APP"
 test -x "$APP/Contents/MacOS/echofloat"
@@ -34,7 +68,17 @@ echo "old build" > "$APP/Contents/Resources/replaced.txt"
 HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
 test ! -e "$APP/Contents/Resources/replaced.txt"
 
-HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir "$INSTALL_DIR"
+uninstall_output="$(
+    HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir "$INSTALL_DIR"
+)"
+case "$uninstall_output" in
+    *"Echofloat removed from $REAL_INSTALL_DIR/Echofloat.app"*) ;;
+    *)
+        echo "Expected canonical install path in uninstall output" >&2
+        echo "$uninstall_output" >&2
+        exit 1
+        ;;
+esac
 test ! -e "$APP"
 test -f "$SUPPORT_FILE"
 test "$(HOME="$HOME_ROOT" defaults read com.echofloat.app InstallerCheckValue)" = "keep-me"
@@ -49,9 +93,11 @@ if HOME="$HOME_ROOT" defaults read com.echofloat.app >/dev/null 2>&1; then
     exit 1
 fi
 
-if HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir / >/dev/null 2>&1; then
-    echo "Expected uninstall guard to reject / install dir" >&2
-    exit 1
-fi
+expect_failure "Refusing to install to /." \
+    env HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$ROOT_INSTALL_LINK"
+expect_failure "Refusing to uninstall from /." \
+    env HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir "$ROOT_INSTALL_LINK"
+expect_failure "Refusing to uninstall from /." \
+    env HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir /
 
 echo "Installer checks passed"

@@ -13,7 +13,31 @@ require_safe_install_dir() {
     local dir="$1"
 
     [[ -n "$dir" ]] || die "Install directory must not be empty."
-    [[ "$dir" != "/" ]] || die "Refusing to uninstall from /."
+}
+
+resolve_install_dir() {
+    local dir="$1"
+    local resolved
+
+    require_safe_install_dir "$dir"
+    dir="${dir%/}"
+    [[ -n "$dir" ]] || dir="/"
+
+    if [[ -e "$dir" ]]; then
+        resolved="$(/bin/realpath "$dir")" || die "Unable to resolve install directory: $dir"
+    else
+        local parent_dir
+        local parent_resolved
+        local leaf_name
+
+        parent_dir="$(dirname "$dir")"
+        leaf_name="$(basename "$dir")"
+        parent_resolved="$(/bin/realpath "$parent_dir")" || die "Unable to resolve install directory: $dir"
+        resolved="$parent_resolved/$leaf_name"
+    fi
+
+    [[ "$resolved" != "/" ]] || die "Refusing to uninstall from /."
+    printf '%s\n' "$resolved"
 }
 
 safe_remove_tree() {
@@ -56,7 +80,7 @@ while (($#)); do
     esac
 done
 
-require_safe_install_dir "$INSTALL_DIR"
+INSTALL_DIR="$(resolve_install_dir "$INSTALL_DIR")"
 
 APP_PATH="$INSTALL_DIR/Echofloat.app"
 LEGACY_LAUNCH_AGENT="${HOME}/Library/LaunchAgents/com.echofloat.autostart.plist"
