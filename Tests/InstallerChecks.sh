@@ -7,6 +7,8 @@ HOME_ROOT="$TMP_ROOT/home"
 REAL_INSTALL_DIR="$TMP_ROOT/real-apps"
 INSTALL_DIR="$TMP_ROOT/link-apps"
 ROOT_INSTALL_LINK="$TMP_ROOT/root-apps"
+MISSING_PARENT_INSTALL_DIR="$TMP_ROOT/missing-parent/new-apps"
+TRAVERSAL_INSTALL_DIR="$TMP_ROOT/traversal-segment/.."
 APP="$REAL_INSTALL_DIR/Echofloat.app"
 SUPPORT_DIR="$HOME_ROOT/Library/Application Support/Echofloat"
 SUPPORT_FILE="$SUPPORT_DIR/LyricsCache/keep.txt"
@@ -99,5 +101,11 @@ expect_failure "Refusing to uninstall from /." \
     env HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir "$ROOT_INSTALL_LINK"
 expect_failure "Refusing to uninstall from /." \
     env HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir /
+expect_failure "Install directory parent must exist:" \
+    env HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$MISSING_PARENT_INSTALL_DIR"
+test ! -e "$TMP_ROOT/missing-parent"
+expect_failure "Install directory basename must not be . or .." \
+    env HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$TRAVERSAL_INSTALL_DIR"
+test ! -e "$TMP_ROOT/traversal-segment"
 
 echo "Installer checks passed"

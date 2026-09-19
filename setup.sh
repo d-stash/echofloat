@@ -20,10 +20,28 @@ require_safe_install_dir() {
 resolve_install_dir() {
     local dir="$1"
     local resolved
+    local parent_dir
+    local parent_resolved
+    local leaf_name
 
     require_safe_install_dir "$dir"
-    mkdir -p "$dir"
-    resolved="$(/bin/realpath "$dir")" || die "Unable to resolve install directory: $dir"
+    dir="${dir%/}"
+    [[ -n "$dir" ]] || dir="/"
+
+    if [[ -e "$dir" ]]; then
+        [[ -d "$dir" ]] || die "Install directory is not a directory: $dir"
+        resolved="$(/bin/realpath "$dir")" || die "Unable to resolve install directory: $dir"
+    else
+        parent_dir="$(dirname "$dir")"
+        leaf_name="$(basename "$dir")"
+        [[ "$leaf_name" != "." && "$leaf_name" != ".." ]] || \
+            die "Install directory basename must not be . or .."
+        [[ -d "$parent_dir" ]] || die "Install directory parent must exist: $parent_dir"
+        parent_resolved="$(/bin/realpath "$parent_dir")" || \
+            die "Unable to resolve install directory parent: $parent_dir"
+        resolved="$parent_resolved/$leaf_name"
+    fi
+
     [[ "$resolved" != "/" ]] || die "Refusing to install to /."
     printf '%s\n' "$resolved"
 }
