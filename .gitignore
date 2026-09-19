@@ -1,3 +1,6 @@
-.worktrees/
 .build/
 .DS_Store
+.swiftpm/
+.worktrees/
+dist/
+*.xcuserstate
