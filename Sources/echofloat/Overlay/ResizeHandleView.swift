@@ -70,11 +70,11 @@ final class ResizeHandleNSView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        cursorForAxis.set()
+        cursorForAxis.push()
     }
 
     override func mouseExited(with event: NSEvent) {
-        NSCursor.arrow.set()
+        NSCursor.pop()
     }
 
     override func mouseDown(with event: NSEvent) {

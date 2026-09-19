@@ -86,6 +86,7 @@ final class OverlayWindowController: NSObject {
             // The panel's frame always matches its visible content, so it never covers
             // desktop area beyond what's drawn; clicks pass through anywhere else.
             panel.ignoresMouseEvents = false
+            panel.acceptsMouseMovedEvents = true
 
             let hosting = NSHostingView(rootView: OverlayContentView(
                 viewModel: viewModel,
@@ -137,7 +138,7 @@ private struct OverlayContentView: View {
                 .frame(maxWidth: .infinity)
                 .frame(maxHeight: .infinity, alignment: .bottom)
             ResizeHandleView(axis: .both, minSize: minSize, defaultOrigin: defaultOrigin)
-                .frame(width: 14, height: 14)
+                .frame(width: 20, height: 20)
         }
     }
 }
