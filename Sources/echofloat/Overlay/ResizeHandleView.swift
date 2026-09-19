@@ -42,14 +42,39 @@ final class ResizeHandleNSView: NSView {
     private var startFrame: CGRect = .zero
     private var startMouse: NSPoint = .zero
 
-    override func resetCursorRects() {
-        let cursor: NSCursor
+    private var trackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea { removeTrackingArea(trackingArea) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .mouseEnteredAndExited, .cursorUpdate],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    private var cursorForAxis: NSCursor {
         switch axis {
-        case .horizontal: cursor = .resizeLeftRight
-        case .vertical: cursor = .resizeUpDown
-        case .both: cursor = .resizeUpDown
+        case .horizontal: return .resizeLeftRight
+        case .vertical: return .resizeUpDown
+        case .both: return .resizeUpDown
         }
-        addCursorRect(bounds, cursor: cursor)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        cursorForAxis.set()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        cursorForAxis.set()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        NSCursor.arrow.set()
     }
 
     override func mouseDown(with event: NSEvent) {

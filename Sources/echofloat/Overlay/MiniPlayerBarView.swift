@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The whole overlay is now a single fixed widget (no hover-expand/collapse state
-/// machine): a compact lyrics line on top, and a mini playback control row below,
-/// stacked vertically per user request rather than side-by-side.
+/// Single fixed overlay widget: a lyrics area on top that reflows to show more
+/// context lines (before/after the current line) as the panel is resized
+/// taller, and a mini playback control row pinned at the bottom, visually
+/// separated by a divider + subtle background tint.
 struct MiniPlayerBarView: View {
     @ObservedObject var viewModel: PlayerViewModel
     let theme: Theme
@@ -12,14 +13,18 @@ struct MiniPlayerBarView: View {
         ZStack {
             LiquidGlassBackground(theme: theme)
             DragHandleView(defaultOrigin: defaultOrigin)
-            VStack(spacing: 6) {
-                Text(currentLineText)
-                    .font(.caption)
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                HStack(spacing: 20) {
+            VStack(spacing: 0) {
+                lyricsArea
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(height: 1)
+
+                HStack(spacing: 22) {
                     transportButton("backward.fill", action: viewModel.previous)
                     transportButton(
                         viewModel.nowPlaying?.status == .playing ? "pause.fill" : "play.fill",
@@ -27,11 +32,29 @@ struct MiniPlayerBarView: View {
                     )
                     transportButton("forward.fill", action: viewModel.next)
                 }
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+                .background(Color.black.opacity(0.15))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var lyricsArea: some View {
+        if viewModel.nowPlaying == nil {
+            Text("Nothing playing")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.7))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            LyricsStackView(
+                lyrics: viewModel.lyrics,
+                currentIndex: viewModel.currentLineIndex,
+                fallbackTitle: viewModel.nowPlaying?.track.title ?? "",
+                accentColor: Color(hex: theme.accentColorHex)
+            )
+        }
     }
 
     private func transportButton(_ systemImage: String, action: @escaping () -> Void) -> some View {
@@ -41,14 +64,57 @@ struct MiniPlayerBarView: View {
         }
         .buttonStyle(.plain)
     }
+}
 
-    private var currentLineText: String {
-        if case .synced(let lines) = viewModel.lyrics, let index = viewModel.currentLineIndex {
-            return lines[index].text
+/// Renders as many lyric lines as fit the available height, centered on the
+/// currently-playing line, so growing the panel taller reveals more
+/// upcoming/previous lines instead of just stretching a single line.
+private struct LyricsStackView: View {
+    let lyrics: LyricsResult
+    let currentIndex: Int?
+    let fallbackTitle: String
+    let accentColor: Color
+
+    private let lineHeight: CGFloat = 18
+
+    var body: some View {
+        GeometryReader { geo in
+            let maxLines = max(1, Int(geo.size.height / lineHeight))
+            VStack(spacing: 2) {
+                ForEach(visibleLines(maxLines: maxLines), id: \.offset) { line in
+                    Text(line.text)
+                        .font(line.isCurrent ? .callout.bold() : .caption2)
+                        .foregroundStyle(line.isCurrent ? accentColor : .white.opacity(0.55))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        if case .plain(let text) = viewModel.lyrics, !text.isEmpty {
-            return text
+    }
+
+    private struct Line: Identifiable {
+        let offset: Int
+        let text: String
+        let isCurrent: Bool
+        var id: Int { offset }
+    }
+
+    private func visibleLines(maxLines: Int) -> [Line] {
+        switch lyrics {
+        case .synced(let lines) where !lines.isEmpty:
+            let current = min(currentIndex ?? 0, lines.count - 1)
+            let before = (maxLines - 1) / 2
+            let start = max(0, current - before)
+            let end = min(lines.count, start + maxLines)
+            let clampedStart = max(0, end - maxLines)
+            return (clampedStart..<end).map { idx in
+                Line(offset: idx, text: lines[idx].text, isCurrent: idx == current)
+            }
+        case .plain(let text) where !text.isEmpty:
+            return [Line(offset: 0, text: text, isCurrent: true)]
+        default:
+            return [Line(offset: 0, text: fallbackTitle, isCurrent: true)]
         }
-        return viewModel.nowPlaying?.track.title ?? "Nothing playing"
     }
 }
