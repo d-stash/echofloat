@@ -8,10 +8,15 @@ struct MiniPlayerBarView: View {
     @ObservedObject var viewModel: PlayerViewModel
     let theme: Theme
     let defaultOrigin: (CGSize) -> CGPoint
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var isPlaying: Bool {
+        viewModel.nowPlaying?.status == .playing
+    }
 
     var body: some View {
         ZStack {
-            PanelBackground(theme: theme)
+            PanelBackground(theme: theme, isPlaying: isPlaying)
             DragHandleView(defaultOrigin: defaultOrigin)
 
             HStack(spacing: 12) {
@@ -28,7 +33,26 @@ struct MiniPlayerBarView: View {
         .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
     }
 
+    @ViewBuilder
     private var albumArt: some View {
+        if theme.animationStyle == .vinylSpin {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isPlaying || reduceMotion)) { timeline in
+                let phase = ThemeAnimation.phase(
+                    at: timeline.date.timeIntervalSinceReferenceDate,
+                    period: 6,
+                    isPlaying: isPlaying,
+                    reduceMotion: reduceMotion
+                )
+                VinylRecordView(accent: Color(hex: theme.accentColorHex))
+                    .rotationEffect(.degrees(phase * 360))
+            }
+            .frame(width: 40, height: 40)
+        } else {
+            standardAlbumArt
+        }
+    }
+
+    private var standardAlbumArt: some View {
         let shape = AnyShape(theme.albumArtShape == .circle
             ? AnyShape(Circle())
             : AnyShape(RoundedRectangle(cornerRadius: 8, style: .continuous)))
@@ -102,7 +126,11 @@ struct MiniPlayerBarView: View {
             Image(systemName: "ellipsis")
                 .foregroundStyle(theme.secondaryTextColor)
         case .equalizer:
-            EqualizerBarsView(color: Color(hex: theme.accentColorHex), isPlaying: viewModel.nowPlaying?.status == .playing)
+            EqualizerBarsView(
+                color: Color(hex: theme.accentColorHex),
+                isPlaying: isPlaying,
+                pixelated: theme.animationStyle == .retroCRT
+            )
                 .frame(width: 26, height: 16)
         }
     }
@@ -113,7 +141,16 @@ struct MiniPlayerBarView: View {
                 .foregroundStyle(Color(hex: theme.accentColorHex))
                 .shadow(color: Color(hex: theme.accentColorHex).opacity(0.7), radius: 4)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TransportButtonStyle())
+    }
+}
+
+private struct TransportButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.82 : 1)
+            .opacity(configuration.isPressed ? 0.65 : 1)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
 
@@ -122,19 +159,63 @@ struct MiniPlayerBarView: View {
 private struct EqualizerBarsView: View {
     let color: Color
     let isPlaying: Bool
+    let pixelated: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: isPlaying ? 0.12 : nil, paused: !isPlaying)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
+        TimelineView(.animation(minimumInterval: 0.12, paused: !isPlaying || reduceMotion)) { timeline in
+            let phase = ThemeAnimation.phase(
+                at: timeline.date.timeIntervalSinceReferenceDate,
+                period: 1.7,
+                isPlaying: isPlaying,
+                reduceMotion: reduceMotion
+            )
             HStack(alignment: .bottom, spacing: 2) {
                 ForEach(0..<4, id: \.self) { i in
-                    let phase = Double(i) * 1.4
-                    let height = isPlaying ? 0.35 + 0.65 * abs(sin(t * 3 + phase)) : 0.3
-                    Capsule()
-                        .fill(color)
-                        .frame(width: 3, height: max(3, height * 16))
+                    let wave = abs(sin(phase * .pi * 2 + Double(i) * 1.4))
+                    let level = isPlaying && !reduceMotion ? 1 + Int(wave * 4) : 2
+                    if pixelated {
+                        PixelEqualizerBar(color: color, level: level)
+                    } else {
+                        Capsule()
+                            .fill(color)
+                            .frame(width: 3, height: CGFloat(level) / 5 * 16)
+                    }
                 }
             }
+        }
+    }
+}
+
+private struct PixelEqualizerBar: View {
+    let color: Color
+    let level: Int
+
+    var body: some View {
+        VStack(spacing: 1) {
+            ForEach((0..<5).reversed(), id: \.self) { block in
+                Rectangle()
+                    .fill(color.opacity(block < level ? 1 : 0.12))
+                    .frame(width: 4, height: 2)
+            }
+        }
+    }
+}
+
+private struct VinylRecordView: View {
+    let accent: Color
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Color.black.opacity(0.86))
+            Circle().stroke(Color.white.opacity(0.12), lineWidth: 1).padding(4)
+            Circle().stroke(Color.white.opacity(0.1), lineWidth: 1).padding(8)
+            Circle().fill(accent).frame(width: 13, height: 13)
+            Circle().fill(Color.black.opacity(0.75)).frame(width: 3, height: 3)
+            Rectangle()
+                .fill(Color.white.opacity(0.45))
+                .frame(width: 11, height: 1)
+                .offset(x: 10)
         }
     }
 }

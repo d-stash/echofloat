@@ -7,7 +7,7 @@ import Testing
     let frame = NotchGeometry.overlayFrame(for: screen, collapsedSize: CGSize(width: 220, height: 32))
     #expect(frame.width == 220)
     #expect(frame.midX == 500)
-    #expect(frame.maxY == 700 - 4)
+    #expect(abs(frame.maxY - 696) < 0.001)
 }
 
 @Test func widensToFitNotchWhenPresent() {

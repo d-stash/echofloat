@@ -41,7 +41,7 @@ private func track(
     )
 }
 
-@Test func fetchesAndCachesLyricsForNewTrack() async throws {
+@Test @MainActor func fetchesAndCachesLyricsForNewTrack() async throws {
     let source = FakeMusicSource()
     let provider = FakeLyricsProvider()
     provider.resultToReturn = .synced([LyricLine(timestamp: 0, text: "Line")])
@@ -58,7 +58,7 @@ private func track(
     viewModel.stop()
 }
 
-@Test func doesNotRefetchLyricsForSameTrack() async throws {
+@Test @MainActor func doesNotRefetchLyricsForSameTrack() async throws {
     let source = FakeMusicSource()
     let provider = FakeLyricsProvider()
     provider.resultToReturn = .plain("Words")
@@ -76,7 +76,7 @@ private func track(
     viewModel.stop()
 }
 
-@Test func computesCurrentLineIndexFromElapsedTime() async throws {
+@Test @MainActor func computesCurrentLineIndexFromElapsedTime() async throws {
     let source = FakeMusicSource()
     let provider = FakeLyricsProvider()
     provider.resultToReturn = .synced([
@@ -96,7 +96,7 @@ private func track(
     viewModel.stop()
 }
 
-@Test func playPauseTogglesBasedOnCurrentStatus() {
+@Test @MainActor func playPauseTogglesBasedOnCurrentStatus() {
     let source = FakeMusicSource()
     let provider = FakeLyricsProvider()
     let cache = LyricsCache(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))

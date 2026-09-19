@@ -12,6 +12,7 @@ final class PlayerViewModel: ObservableObject {
     private let cache: LyricsCache
     private var listenTask: Task<Void, Never>?
     private var lyricsTask: Task<Void, Never>?
+    private var lyricTickerTask: Task<Void, Never>?
     private var lifecycleVersion = 0
 
     init(musicSource: MusicSource, lyricsProvider: LyricsProvider, cache: LyricsCache) {
@@ -30,6 +31,15 @@ final class PlayerViewModel: ObservableObject {
                 self.handle(state, version: version)
             }
         }
+        lyricTickerTask?.cancel()
+        lyricTickerTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                guard let self else { return }
+                guard let state = self.nowPlaying else { continue }
+                self.updateCurrentLine(elapsed: PlaybackClock.estimatedElapsed(for: state))
+            }
+        }
     }
 
     func stop() {
@@ -37,6 +47,8 @@ final class PlayerViewModel: ObservableObject {
         listenTask = nil
         lyricsTask?.cancel()
         lyricsTask = nil
+        lyricTickerTask?.cancel()
+        lyricTickerTask = nil
         lifecycleVersion += 1
     }
 
@@ -80,7 +92,9 @@ final class PlayerViewModel: ObservableObject {
 
     private func updateCurrentLine(elapsed: Double) {
         guard case .synced(let lines) = lyrics, !lines.isEmpty else {
-            currentLineIndex = nil
+            if currentLineIndex != nil {
+                currentLineIndex = nil
+            }
             return
         }
 
@@ -88,13 +102,33 @@ final class PlayerViewModel: ObservableObject {
         for (indexValue, line) in lines.enumerated() where line.timestamp <= elapsed {
             index = indexValue
         }
-        currentLineIndex = index
+        if currentLineIndex != index {
+            currentLineIndex = index
+        }
     }
 
     func playPause() {
-        if nowPlaying?.status == .playing {
+        guard let state = nowPlaying else {
+            musicSource.play()
+            return
+        }
+        if state.status == .playing {
+            nowPlaying = NowPlayingState(
+                track: state.track,
+                sourceAppName: state.sourceAppName,
+                status: .paused,
+                elapsedSeconds: PlaybackClock.estimatedElapsed(for: state),
+                capturedAt: Date()
+            )
             musicSource.pause()
         } else {
+            nowPlaying = NowPlayingState(
+                track: state.track,
+                sourceAppName: state.sourceAppName,
+                status: .playing,
+                elapsedSeconds: state.elapsedSeconds,
+                capturedAt: Date()
+            )
             musicSource.play()
         }
     }

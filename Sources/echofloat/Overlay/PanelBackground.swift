@@ -10,6 +10,7 @@ import SwiftUI
 /// instead of chasing that effect.
 struct PanelBackground: View {
     let theme: Theme
+    let isPlaying: Bool
 
     var body: some View {
         ZStack {
@@ -19,21 +20,41 @@ struct PanelBackground: View {
                 endPoint: .bottom
             )
 
-            switch theme.motif {
-            case .neonGrid:
-                NeonGridMotif(color: Color(hex: theme.accentColorHex))
-            case .mountains:
-                MountainSilhouetteMotif(sunColor: Color(hex: theme.accentColorHex))
-            case .none:
-                EmptyView()
+            switch theme.animationStyle {
+            case .neonDrive:
+                NeonGridMotif(
+                    color: Color(hex: theme.accentColorHex),
+                    isPlaying: isPlaying
+                )
+            case .retroCRT:
+                RetroCRTMotif(
+                    color: Color(hex: theme.accentColorHex),
+                    isPlaying: isPlaying
+                )
+            case .midnightSky:
+                MidnightSkyMotif(
+                    color: Color(hex: theme.accentColorHex),
+                    isPlaying: isPlaying
+                )
+            case .sunsetParallax:
+                MountainSilhouetteMotif(
+                    sunColor: Color(hex: theme.accentColorHex),
+                    isPlaying: isPlaying
+                )
+            case .vinylSpin:
+                PaperGrainMotif(isPlaying: isPlaying)
             }
 
             if let borderHex = theme.borderColorHex {
                 let border = Color(hex: borderHex)
-                RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous)
-                    .strokeBorder(border, lineWidth: theme.borderGlows ? 1.5 : 2)
-                    .shadow(color: theme.borderGlows ? border.opacity(0.8) : .clear, radius: 6)
-                    .shadow(color: theme.borderGlows ? border.opacity(0.5) : .clear, radius: 14)
+                if theme.animationStyle == .retroCRT {
+                    PixelBorder(color: border)
+                } else {
+                    RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous)
+                        .strokeBorder(border, lineWidth: theme.borderGlows ? 1.5 : 2)
+                        .shadow(color: theme.borderGlows ? border.opacity(0.8) : .clear, radius: 6)
+                        .shadow(color: theme.borderGlows ? border.opacity(0.5) : .clear, radius: 14)
+                }
             }
         }
     }

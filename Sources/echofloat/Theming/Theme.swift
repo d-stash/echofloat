@@ -13,9 +13,11 @@ struct Theme: Identifiable, Equatable {
     /// Decorative background animation each theme drives; kept as an enum so future
     /// themes can each plug in their own without touching unrelated themes.
     enum AnimationStyle: Equatable {
-        case none
-        /// Neon Arcade: sine-wave pulse under the lyrics, speeds up while playing.
-        case sineWavePulse
+        case neonDrive
+        case retroCRT
+        case midnightSky
+        case sunsetParallax
+        case vinylSpin
     }
 
     enum AlbumArtShape: Equatable {
@@ -64,7 +66,7 @@ struct Theme: Identifiable, Equatable {
         accentColorHex: "#FF3EC9",
         blurIntensity: 0.95,
         motif: .neonGrid,
-        animationStyle: .sineWavePulse,
+        animationStyle: .neonDrive,
         isLight: false,
         usesMonospacedFont: false,
         cornerRadius: 16,
@@ -81,7 +83,7 @@ struct Theme: Identifiable, Equatable {
         accentColorHex: "#39FF6A",
         blurIntensity: 1.0,
         motif: .none,
-        animationStyle: .none,
+        animationStyle: .retroCRT,
         isLight: false,
         usesMonospacedFont: true,
         cornerRadius: 4,
@@ -98,7 +100,7 @@ struct Theme: Identifiable, Equatable {
         accentColorHex: "#8FA3FF",
         blurIntensity: 1.0,
         motif: .none,
-        animationStyle: .none,
+        animationStyle: .midnightSky,
         isLight: false,
         usesMonospacedFont: false,
         cornerRadius: 20,
@@ -115,7 +117,7 @@ struct Theme: Identifiable, Equatable {
         accentColorHex: "#FFB37A",
         blurIntensity: 1.0,
         motif: .mountains,
-        animationStyle: .none,
+        animationStyle: .sunsetParallax,
         isLight: false,
         usesMonospacedFont: false,
         cornerRadius: 18,
@@ -132,7 +134,7 @@ struct Theme: Identifiable, Equatable {
         accentColorHex: "#B08D57",
         blurIntensity: 1.0,
         motif: .none,
-        animationStyle: .none,
+        animationStyle: .vinylSpin,
         isLight: true,
         usesMonospacedFont: false,
         cornerRadius: 20,

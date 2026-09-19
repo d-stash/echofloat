@@ -2,15 +2,21 @@ import Foundation
 import Testing
 @testable import echofloat
 
-@Test func exposesExactlyTwoBuiltInThemes() {
-    #expect(Theme.builtIn.count == 2)
-    #expect(Theme.builtIn.map(\.id) == ["aurora-glass", "neon-arcade"])
+@Test func exposesAllBuiltInThemes() {
+    #expect(Theme.builtIn.count == 5)
+    #expect(Theme.builtIn.map(\.id) == [
+        "neon-arcade",
+        "retro-terminal",
+        "midnight-aurora",
+        "sunset-vaporwave",
+        "vinyl-warmth",
+    ])
 }
 
-@Test func defaultsToAuroraGlassWhenNothingPersisted() {
+@Test func defaultsToNeonArcadeWhenNothingPersisted() {
     let defaults = UserDefaults(suiteName: "echofloat-tests-\(UUID().uuidString)")!
     let manager = ThemeManager(defaults: defaults)
-    #expect(manager.current.id == "aurora-glass")
+    #expect(manager.current.id == "neon-arcade")
 }
 
 @Test func selectingThemePersistsAcrossInstances() {
