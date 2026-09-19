@@ -1,11 +1,9 @@
 import AppKit
-import Combine
 import SwiftUI
 
 @MainActor
 final class OverlayWindowController: NSObject {
     private var panels: [ObjectIdentifier: NSPanel] = [:]
-    private var themeSubscription: AnyCancellable?
     private let viewModel: PlayerViewModel
     private let themeManager: ThemeManager
     private let defaults: UserDefaults
@@ -32,9 +30,6 @@ final class OverlayWindowController: NSObject {
         self.defaults = defaults
         self.isVisible = defaults.object(forKey: Self.visibilityKey) as? Bool ?? true
         super.init()
-        themeSubscription = themeManager.objectWillChange.sink { [weak self] _ in
-            self?.rebuildPanels()
-        }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(rebuildPanels),
@@ -75,30 +70,38 @@ final class OverlayWindowController: NSObject {
             // Keep the (possibly user-dragged) frame at least partially on this screen so a
             // stale/odd stored offset can never make the whole overlay vanish off-screen.
             let frame = Self.clamp(offsetFrame, toFit: screen.frame)
-            // Must be the *neutral* (un-offset) origin, not the already-offset `frame`'s
-            // origin — otherwise every drag/resize only persists that gesture's delta
-            // instead of the true cumulative offset, so any rebuild (theme switch,
-            // screen change, visibility toggle) discards prior drags and snaps back.
-            let defaultOrigin = { defaultFrame.origin }
+            // Must be the *neutral* (un-offset) origin for the requested size, not the
+            // already-offset `frame`'s origin — otherwise every drag/resize only persists
+            // that gesture's delta instead of the true cumulative offset, so any rebuild
+            // (theme switch, screen change, visibility toggle) discards prior drags and
+            // snaps back. Takes the size as a parameter (rather than capturing `size`
+            // directly) because a resize gesture changes the size *before* it computes the
+            // offset to persist — using the stale pre-resize default origin there would
+            // store an offset that no longer lines up with the size-dependent default
+            // origin the next rebuild computes, producing the same visible "jump".
+            let defaultOrigin: (CGSize) -> CGPoint = { requestedSize in
+                NotchGeometry.overlayFrame(for: metrics, collapsedSize: requestedSize).origin
+            }
 
             let content = OverlayContentView(
                 viewModel: viewModel,
-                theme: themeManager.current,
+                themeManager: themeManager,
                 minSize: minSize,
                 defaultOrigin: defaultOrigin
             )
 
             if let panel = panels[screenID] {
-                // Update the existing panel in place — destroying and recreating it on
-                // every theme switch/screen change caused a visible flash/pop-in that
-                // read as the overlay "snapping back" to its default position, even
-                // though the underlying stored offset was already correct. Always
-                // create a fresh NSHostingView rather than casting to the previous
-                // one's generic type — a failed cast there would silently leave the
-                // panel showing stale content while the menu checkmark already moved.
+                // Screen/configuration rebuilds reuse the panel so its placement remains
+                // stable. Theme changes never enter this path: SwiftUI observes
+                // ThemeManager directly and redraws the existing hosting hierarchy.
                 let hosting = NSHostingView(rootView: content)
                 hosting.autoresizingMask = [.width, .height]
                 hosting.frame = NSRect(origin: .zero, size: frame.size)
+                // NSHostingView draws an opaque backing layer by default (a macOS
+                // Ventura+ regression from earlier SwiftUI behavior) — this silently
+                // painted a flat opaque gray over the panel regardless of window
+                // level or NSVisualEffectView material, masking all real transparency.
+                hosting.layer?.backgroundColor = NSColor.clear.cgColor
                 panel.contentView = hosting
                 if panel.frame != frame {
                     panel.setFrame(frame, display: true)
@@ -124,6 +127,7 @@ final class OverlayWindowController: NSObject {
                 let hosting = NSHostingView(rootView: content)
                 hosting.autoresizingMask = [.width, .height]
                 hosting.frame = NSRect(origin: .zero, size: frame.size)
+                hosting.layer?.backgroundColor = NSColor.clear.cgColor
                 panel.contentView = hosting
                 panel.orderFrontRegardless()
 
@@ -157,13 +161,17 @@ private let resizeHandleThickness: CGFloat = 6
 
 private struct OverlayContentView: View {
     @ObservedObject var viewModel: PlayerViewModel
-    let theme: Theme
+    @ObservedObject var themeManager: ThemeManager
     let minSize: CGSize
-    let defaultOrigin: () -> CGPoint
+    let defaultOrigin: (CGSize) -> CGPoint
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            MiniPlayerBarView(viewModel: viewModel, theme: theme, defaultOrigin: defaultOrigin)
+            MiniPlayerBarView(
+                viewModel: viewModel,
+                theme: themeManager.current,
+                defaultOrigin: defaultOrigin
+            )
 
             // Real macOS resize cursor can't repaint on a non-activating accessory
             // panel (OS always shows the active app's cursor, by design). Handles

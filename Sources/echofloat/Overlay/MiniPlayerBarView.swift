@@ -1,50 +1,70 @@
 import SwiftUI
 
-/// Single fixed overlay widget: a lyrics area on top that reflows to show more
-/// context lines (before/after the current line) as the panel is resized
-/// taller, and a mini playback control row pinned at the bottom, visually
-/// separated by a divider + subtle background tint.
+/// Single fixed overlay widget, redesigned as one horizontal bar (album art,
+/// title/artist, lyrics, transport controls, accessory icon) matching the
+/// reference mini-player designs, while keeping the earlier resize-to-reveal-
+/// more-lyric-lines behavior — the lyrics stack still grows with panel height.
 struct MiniPlayerBarView: View {
     @ObservedObject var viewModel: PlayerViewModel
     let theme: Theme
-    let defaultOrigin: () -> CGPoint
+    let defaultOrigin: (CGSize) -> CGPoint
 
     var body: some View {
         ZStack {
-            LiquidGlassBackground(theme: theme)
+            PanelBackground(theme: theme)
             DragHandleView(defaultOrigin: defaultOrigin)
-            VStack(spacing: 0) {
+
+            HStack(spacing: 12) {
+                albumArt
+                trackInfo
                 lyricsArea
-                    .padding(.horizontal, 14)
-                    .padding(.top, 10)
-                    .padding(.bottom, 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                Rectangle()
-                    .fill(theme.dividerColor)
-                    .frame(height: 1)
-
-                HStack(spacing: 22) {
-                    transportButton("backward.fill", action: viewModel.previous)
-                    transportButton(
-                        viewModel.nowPlaying?.status == .playing ? "pause.fill" : "play.fill",
-                        action: viewModel.playPause
-                    )
-                    transportButton("forward.fill", action: viewModel.next)
-                }
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
-                .background(theme.chromeOverlayColor)
+                transportControls
+                accessoryView
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
+    }
+
+    private var albumArt: some View {
+        let shape = AnyShape(theme.albumArtShape == .circle
+            ? AnyShape(Circle())
+            : AnyShape(RoundedRectangle(cornerRadius: 8, style: .continuous)))
+        return ZStack {
+            shape.fill(Color(hex: theme.accentColorHex).opacity(0.18))
+            Image(systemName: "music.note")
+                .foregroundStyle(Color(hex: theme.accentColorHex))
+            shape.stroke(Color(hex: theme.accentColorHex).opacity(0.6), lineWidth: 1)
+        }
+        .frame(width: 40, height: 40)
+    }
+
+    @ViewBuilder
+    private var trackInfo: some View {
+        if let track = viewModel.nowPlaying?.track {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(track.title)
+                    .font(.system(.caption, design: theme.fontDesign).bold())
+                    .foregroundStyle(theme.textColor)
+                    .lineLimit(1)
+                Text(track.artist)
+                    .font(.system(.caption2, design: theme.fontDesign))
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .lineLimit(1)
+            }
+            .frame(width: 84, alignment: .leading)
+        } else {
+            EmptyView()
+        }
     }
 
     @ViewBuilder
     private var lyricsArea: some View {
         if viewModel.nowPlaying == nil {
             Text("Nothing playing")
-                .font(.caption)
+                .font(.system(.caption, design: theme.fontDesign))
                 .foregroundStyle(theme.secondaryTextColor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -53,8 +73,37 @@ struct MiniPlayerBarView: View {
                 currentIndex: viewModel.currentLineIndex,
                 fallbackTitle: viewModel.nowPlaying?.track.title ?? "",
                 accentColor: Color(hex: theme.accentColorHex),
-                secondaryColor: theme.secondaryTextColor
+                secondaryColor: theme.secondaryTextColor,
+                fontDesign: theme.fontDesign
             )
+        }
+    }
+
+    private var transportControls: some View {
+        HStack(spacing: 14) {
+            transportButton("backward.fill", action: viewModel.previous)
+            transportButton(
+                viewModel.nowPlaying?.status == .playing ? "pause.fill" : "play.fill",
+                action: viewModel.playPause
+            )
+            transportButton("forward.fill", action: viewModel.next)
+        }
+    }
+
+    @ViewBuilder
+    private var accessoryView: some View {
+        switch theme.accessoryIcon {
+        case .none:
+            EmptyView()
+        case .heart:
+            Image(systemName: "heart")
+                .foregroundStyle(Color(hex: theme.accentColorHex))
+        case .ellipsis:
+            Image(systemName: "ellipsis")
+                .foregroundStyle(theme.secondaryTextColor)
+        case .equalizer:
+            EqualizerBarsView(color: Color(hex: theme.accentColorHex), isPlaying: viewModel.nowPlaying?.status == .playing)
+                .frame(width: 26, height: 16)
         }
     }
 
@@ -68,6 +117,28 @@ struct MiniPlayerBarView: View {
     }
 }
 
+/// Small animated bar-graph accessory (seen in several reference designs next to
+/// the transport controls), pulsing while a track is playing and flat when paused.
+private struct EqualizerBarsView: View {
+    let color: Color
+    let isPlaying: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: isPlaying ? 0.12 : nil, paused: !isPlaying)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(0..<4, id: \.self) { i in
+                    let phase = Double(i) * 1.4
+                    let height = isPlaying ? 0.35 + 0.65 * abs(sin(t * 3 + phase)) : 0.3
+                    Capsule()
+                        .fill(color)
+                        .frame(width: 3, height: max(3, height * 16))
+                }
+            }
+        }
+    }
+}
+
 /// Renders as many lyric lines as fit the available height, centered on the
 /// currently-playing line, so growing the panel taller reveals more
 /// upcoming/previous lines instead of just stretching a single line.
@@ -77,6 +148,7 @@ private struct LyricsStackView: View {
     let fallbackTitle: String
     let accentColor: Color
     let secondaryColor: Color
+    let fontDesign: Font.Design
 
     private let lineHeight: CGFloat = 18
 
@@ -86,7 +158,7 @@ private struct LyricsStackView: View {
             VStack(spacing: 2) {
                 ForEach(visibleLines(maxLines: maxLines), id: \.offset) { line in
                     Text(line.text)
-                        .font(line.isCurrent ? .callout.bold() : .caption2)
+                        .font(.system(line.isCurrent ? .callout : .caption2, design: fontDesign).weight(line.isCurrent ? .bold : .regular))
                         .foregroundStyle(line.isCurrent ? accentColor : secondaryColor)
                         .shadow(color: line.isCurrent ? accentColor.opacity(0.6) : .clear, radius: 3)
                         .lineLimit(1)
@@ -120,5 +192,19 @@ private struct LyricsStackView: View {
         default:
             return [Line(offset: 0, text: fallbackTitle, isCurrent: true)]
         }
+    }
+}
+
+/// Type-erased shape wrapper so albumArt can pick Circle vs RoundedRectangle at
+/// runtime based on the theme without duplicating the whole view body.
+private struct AnyShape: Shape {
+    private let pathBuilder: @Sendable (CGRect) -> Path
+
+    init<S: Shape>(_ shape: S) {
+        pathBuilder = { rect in shape.path(in: rect) }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        pathBuilder(rect)
     }
 }

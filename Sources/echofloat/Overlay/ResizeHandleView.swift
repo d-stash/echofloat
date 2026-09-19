@@ -17,7 +17,7 @@ enum ResizeAxis {
 struct ResizeHandleView: NSViewRepresentable {
     let axis: ResizeAxis
     let minSize: CGSize
-    let defaultOrigin: () -> CGPoint
+    let defaultOrigin: (CGSize) -> CGPoint
 
     func makeNSView(context: Context) -> ResizeHandleNSView {
         let view = ResizeHandleNSView()
@@ -37,7 +37,7 @@ struct ResizeHandleView: NSViewRepresentable {
 final class ResizeHandleNSView: NSView {
     var axis: ResizeAxis = .both
     var minSize: CGSize = CGSize(width: 260, height: 90)
-    var defaultOrigin: (() -> CGPoint)?
+    var defaultOrigin: ((CGSize) -> CGPoint)?
 
     private var startFrame: CGRect = .zero
     private var startMouse: NSPoint = .zero
@@ -72,8 +72,9 @@ final class ResizeHandleNSView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         guard let window else { return }
-        OverlayPlacementStore.customSize = window.frame.size
-        if let defaultOrigin = defaultOrigin?() {
+        let newSize = window.frame.size
+        OverlayPlacementStore.customSize = newSize
+        if let defaultOrigin = defaultOrigin?(newSize) {
             OverlayPlacementStore.positionOffset = CGSize(
                 width: window.frame.origin.x - defaultOrigin.x,
                 height: window.frame.origin.y - defaultOrigin.y
