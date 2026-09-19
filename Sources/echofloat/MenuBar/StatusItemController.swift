@@ -1,11 +1,18 @@
 import AppKit
 
 @MainActor
-final class StatusItemController {
+final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let themeManager: ThemeManager
     private let overlayController: OverlayWindowController
     private let autostartManager: AutostartManager
+    private let menu = NSMenu()
+    private let visibilityItem = NSMenuItem(title: "", action: #selector(toggleOverlayVisibility), keyEquivalent: "")
+    private let themeMenu = NSMenu()
+    private let themeItem = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
+    private let displayModeItem = NSMenuItem(title: "Show on Active Display Only", action: #selector(toggleDisplayMode), keyEquivalent: "")
+    private let autostartItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleAutostart), keyEquivalent: "")
+    private let quitItem = NSMenuItem(title: "Quit Echofloat", action: #selector(quit), keyEquivalent: "q")
 
     init(
         themeManager: ThemeManager,
@@ -16,75 +23,78 @@ final class StatusItemController {
         self.overlayController = overlayController
         self.autostartManager = autostartManager
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        super.init()
         statusItem.button?.image = NSImage(systemSymbolName: "music.note.list", accessibilityDescription: "Echofloat")
-        buildMenu()
+        configureMenu()
+        refreshMenuState()
     }
 
-    private func buildMenu() {
-        let menu = NSMenu()
+    deinit {
+        NSStatusBar.system.removeStatusItem(statusItem)
+    }
 
-        let visibilityItem = NSMenuItem(
-            title: overlayController.isVisible ? "Hide Overlay" : "Show Overlay",
-            action: #selector(toggleOverlayVisibility),
-            keyEquivalent: ""
-        )
+    private func configureMenu() {
+        menu.delegate = self
+
         visibilityItem.target = self
         menu.addItem(visibilityItem)
 
-        let themeMenu = NSMenu()
         for theme in Theme.builtIn {
             let item = NSMenuItem(title: theme.name, action: #selector(selectTheme(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = theme.id
-            item.state = theme.id == themeManager.current.id ? .on : .off
             themeMenu.addItem(item)
         }
-        let themeItem = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
         themeItem.submenu = themeMenu
         menu.addItem(themeItem)
 
-        let displayModeItem = NSMenuItem(
-            title: "Show on Active Display Only",
-            action: #selector(toggleDisplayMode),
-            keyEquivalent: ""
-        )
         displayModeItem.target = self
-        displayModeItem.state = overlayController.showOnAllDisplays ? .off : .on
         menu.addItem(displayModeItem)
 
-        let autostartTitle =
-            autostartManager.status == .requiresApproval
-            ? "Launch at Login (Approval Required)"
-            : "Launch at Login"
-        let autostartItem = NSMenuItem(title: autostartTitle, action: #selector(toggleAutostart), keyEquivalent: "")
         autostartItem.target = self
-        autostartItem.state = autostartManager.isEnabled ? .on : .off
         menu.addItem(autostartItem)
 
         menu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Quit Echofloat", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
         statusItem.menu = menu
     }
 
+    private func refreshMenuState() {
+        visibilityItem.title = overlayController.isVisible ? "Hide Overlay" : "Show Overlay"
+        displayModeItem.state = overlayController.showOnAllDisplays ? .off : .on
+        autostartItem.title = autostartManager.status == .requiresApproval
+            ? "Launch at Login (Approval Required)"
+            : "Launch at Login"
+        autostartItem.state = autostartManager.isEnabled ? .on : .off
+
+        for item in themeMenu.items {
+            guard let id = item.representedObject as? String else { continue }
+            item.state = id == themeManager.current.id ? .on : .off
+        }
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        refreshMenuState()
+    }
+
     @objc private func selectTheme(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String,
               let theme = Theme.builtIn.first(where: { $0.id == id }) else { return }
         themeManager.select(theme)
-        buildMenu()
+        refreshMenuState()
     }
 
     @objc private func toggleDisplayMode() {
         overlayController.showOnAllDisplays.toggle()
-        buildMenu()
+        refreshMenuState()
     }
 
     @objc private func toggleOverlayVisibility() {
         overlayController.isVisible.toggle()
-        buildMenu()
+        refreshMenuState()
     }
 
     @objc private func toggleAutostart() {
@@ -99,7 +109,7 @@ final class StatusItemController {
             alert.runModal()
             NSLog("Echofloat: Launch at Login failed: \(error.localizedDescription)")
         }
-        buildMenu()
+        refreshMenuState()
     }
 
     @objc private func quit() {
