@@ -52,9 +52,11 @@ final class OverlayWindowController: NSObject {
     }
 
     @objc private func rebuildPanels() {
-        for panel in panels.values { panel.orderOut(nil) }
-        panels.removeAll()
-        guard isVisible else { return }
+        guard isVisible else {
+            for panel in panels.values { panel.orderOut(nil) }
+            panels.removeAll()
+            return
+        }
 
         let targetScreens = showOnAllDisplays ? NSScreen.screens : NSScreen.main.map { [$0] } ?? []
         let minSize = defaultSize
@@ -62,44 +64,72 @@ final class OverlayWindowController: NSObject {
         let size = CGSize(width: max(baseSize.width, minSize.width), height: max(baseSize.height, minSize.height))
         let positionOffset = OverlayPlacementStore.positionOffset
 
+        var seenScreens = Set<ObjectIdentifier>()
         for screen in targetScreens {
+            let screenID = ObjectIdentifier(screen)
+            seenScreens.insert(screenID)
+
             let metrics = ScreenMetrics(screen: screen)
             let defaultFrame = NotchGeometry.overlayFrame(for: metrics, collapsedSize: size)
             let offsetFrame = defaultFrame.offsetBy(dx: positionOffset.width, dy: positionOffset.height)
             // Keep the (possibly user-dragged) frame at least partially on this screen so a
             // stale/odd stored offset can never make the whole overlay vanish off-screen.
             let frame = Self.clamp(offsetFrame, toFit: screen.frame)
-            let defaultOrigin = { frame.origin }
+            // Must be the *neutral* (un-offset) origin, not the already-offset `frame`'s
+            // origin — otherwise every drag/resize only persists that gesture's delta
+            // instead of the true cumulative offset, so any rebuild (theme switch,
+            // screen change, visibility toggle) discards prior drags and snaps back.
+            let defaultOrigin = { defaultFrame.origin }
 
-            let panel = NSPanel(
-                contentRect: frame,
-                styleMask: [.borderless, .nonactivatingPanel],
-                backing: .buffered,
-                defer: false
-            )
-            panel.isFloatingPanel = true
-            panel.level = .statusBar
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            panel.backgroundColor = .clear
-            panel.isOpaque = false
-            panel.hasShadow = false
-            // The panel's frame always matches its visible content, so it never covers
-            // desktop area beyond what's drawn; clicks pass through anywhere else.
-            panel.ignoresMouseEvents = false
-            panel.acceptsMouseMovedEvents = true
-
-            let hosting = NSHostingView(rootView: OverlayContentView(
+            let content = OverlayContentView(
                 viewModel: viewModel,
                 theme: themeManager.current,
                 minSize: minSize,
                 defaultOrigin: defaultOrigin
-            ))
-            hosting.autoresizingMask = [.width, .height]
-            hosting.frame = NSRect(origin: .zero, size: frame.size)
-            panel.contentView = hosting
-            panel.orderFrontRegardless()
+            )
 
-            panels[ObjectIdentifier(screen)] = panel
+            if let panel = panels[screenID] {
+                // Update the existing panel in place — destroying and recreating it on
+                // every theme switch/screen change caused a visible flash/pop-in that
+                // read as the overlay "snapping back" to its default position, even
+                // though the underlying stored offset was already correct.
+                (panel.contentView as? NSHostingView<OverlayContentView>)?.rootView = content
+                if panel.frame != frame {
+                    panel.setFrame(frame, display: true)
+                }
+            } else {
+                let panel = NSPanel(
+                    contentRect: frame,
+                    styleMask: [.borderless, .nonactivatingPanel],
+                    backing: .buffered,
+                    defer: false
+                )
+                panel.isFloatingPanel = true
+                panel.level = .statusBar
+                panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+                panel.backgroundColor = .clear
+                panel.isOpaque = false
+                panel.hasShadow = false
+                // The panel's frame always matches its visible content, so it never covers
+                // desktop area beyond what's drawn; clicks pass through anywhere else.
+                panel.ignoresMouseEvents = false
+                panel.acceptsMouseMovedEvents = true
+
+                let hosting = NSHostingView(rootView: content)
+                hosting.autoresizingMask = [.width, .height]
+                hosting.frame = NSRect(origin: .zero, size: frame.size)
+                panel.contentView = hosting
+                panel.orderFrontRegardless()
+
+                panels[screenID] = panel
+            }
+        }
+
+        // Drop panels for screens no longer targeted (showOnAllDisplays toggled off,
+        // or a display was disconnected).
+        for (screenID, panel) in panels where !seenScreens.contains(screenID) {
+            panel.orderOut(nil)
+            panels.removeValue(forKey: screenID)
         }
     }
 
@@ -129,6 +159,9 @@ private struct OverlayContentView: View {
         ZStack(alignment: .bottomTrailing) {
             MiniPlayerBarView(viewModel: viewModel, theme: theme, defaultOrigin: defaultOrigin)
 
+            // Real macOS resize cursor can't repaint on a non-activating accessory
+            // panel (OS always shows the active app's cursor, by design). Handles
+            // stay invisible hit-only regions; user already knows corner is resizable.
             ResizeHandleView(axis: .horizontal, minSize: minSize, defaultOrigin: defaultOrigin)
                 .frame(width: resizeHandleThickness)
                 .frame(maxHeight: .infinity)

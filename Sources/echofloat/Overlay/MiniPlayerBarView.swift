@@ -61,6 +61,7 @@ struct MiniPlayerBarView: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .foregroundStyle(Color(hex: theme.accentColorHex))
+                .shadow(color: Color(hex: theme.accentColorHex).opacity(0.7), radius: 4)
         }
         .buttonStyle(.plain)
     }
@@ -85,6 +86,7 @@ private struct LyricsStackView: View {
                     Text(line.text)
                         .font(line.isCurrent ? .callout.bold() : .caption2)
                         .foregroundStyle(line.isCurrent ? accentColor : .white.opacity(0.55))
+                        .shadow(color: line.isCurrent ? accentColor.opacity(0.6) : .clear, radius: 3)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)
                 }
