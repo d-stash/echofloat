@@ -3,20 +3,17 @@ import Combine
 import SwiftUI
 
 @MainActor
-private final class OverlayInteractionModel: ObservableObject {
-    @Published var isExpanded = false
-}
-
-@MainActor
 final class OverlayWindowController: NSObject {
     private var panels: [ObjectIdentifier: NSPanel] = [:]
-    private var interactionModels: [ObjectIdentifier: OverlayInteractionModel] = [:]
     private var themeSubscription: AnyCancellable?
-    private var mouseMonitor: Any?
     private let viewModel: PlayerViewModel
     private let themeManager: ThemeManager
     private let defaults: UserDefaults
     private static let visibilityKey = "echofloat.overlayVisible"
+
+    /// Default (and minimum) widget size: fixed lyrics line + controls row, no
+    /// hover-driven expand/collapse. Width can never shrink below this default.
+    private let defaultSize = CGSize(width: 260, height: 90)
 
     var showOnAllDisplays = true {
         didSet { rebuildPanels() }
@@ -38,9 +35,6 @@ final class OverlayWindowController: NSObject {
         themeSubscription = themeManager.objectWillChange.sink { [weak self] _ in
             self?.rebuildPanels()
         }
-        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
-            Task { @MainActor in self?.handleGlobalMouseMove() }
-        }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(rebuildPanels),
@@ -50,9 +44,6 @@ final class OverlayWindowController: NSObject {
     }
 
     deinit {
-        if let mouseMonitor {
-            NSEvent.removeMonitor(mouseMonitor)
-        }
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -63,16 +54,23 @@ final class OverlayWindowController: NSObject {
     @objc private func rebuildPanels() {
         for panel in panels.values { panel.orderOut(nil) }
         panels.removeAll()
-        interactionModels.removeAll()
         guard isVisible else { return }
 
         let targetScreens = showOnAllDisplays ? NSScreen.screens : NSScreen.main.map { [$0] } ?? []
-        let collapsedSize = CGSize(width: 220, height: 32)
-        let expandedSize = CGSize(width: 360, height: 360)
+        let minSize = defaultSize
+        let baseSize = OverlayPlacementStore.customSize ?? defaultSize
+        let size = CGSize(width: max(baseSize.width, minSize.width), height: max(baseSize.height, minSize.height))
+        let positionOffset = OverlayPlacementStore.positionOffset
 
         for screen in targetScreens {
             let metrics = ScreenMetrics(screen: screen)
-            let frame = NotchGeometry.overlayFrame(for: metrics, collapsedSize: expandedSize)
+            let defaultFrame = NotchGeometry.overlayFrame(for: metrics, collapsedSize: size)
+            let offsetFrame = defaultFrame.offsetBy(dx: positionOffset.width, dy: positionOffset.height)
+            // Keep the (possibly user-dragged) frame at least partially on this screen so a
+            // stale/odd stored offset can never make the whole overlay vanish off-screen.
+            let frame = Self.clamp(offsetFrame, toFit: screen.frame)
+            let defaultOrigin = { frame.origin }
+
             let panel = NSPanel(
                 contentRect: frame,
                 styleMask: [.borderless, .nonactivatingPanel],
@@ -85,60 +83,61 @@ final class OverlayWindowController: NSObject {
             panel.backgroundColor = .clear
             panel.isOpaque = false
             panel.hasShadow = false
-            panel.ignoresMouseEvents = true
-            panel.acceptsMouseMovedEvents = true
+            // The panel's frame always matches its visible content, so it never covers
+            // desktop area beyond what's drawn; clicks pass through anywhere else.
+            panel.ignoresMouseEvents = false
 
-            let model = OverlayInteractionModel()
             let hosting = NSHostingView(rootView: OverlayContentView(
                 viewModel: viewModel,
-                model: model,
                 theme: themeManager.current,
-                collapsedSize: collapsedSize
+                minSize: minSize,
+                defaultOrigin: defaultOrigin
             ))
+            hosting.autoresizingMask = [.width, .height]
             hosting.frame = NSRect(origin: .zero, size: frame.size)
             panel.contentView = hosting
-            panel.setFrame(frame, display: true)
             panel.orderFrontRegardless()
 
-            let id = ObjectIdentifier(screen)
-            panels[id] = panel
-            interactionModels[id] = model
+            panels[ObjectIdentifier(screen)] = panel
         }
     }
 
-    private func handleGlobalMouseMove() {
-        guard isVisible else { return }
-        let location = NSEvent.mouseLocation
-        for (id, panel) in panels where panel.frame.contains(location) {
-            if panel.ignoresMouseEvents {
-                panel.ignoresMouseEvents = false
-                interactionModels[id]?.isExpanded = true
-            }
-        }
+    private static func clamp(_ frame: CGRect, toFit bounds: CGRect) -> CGRect {
+        let minVisible: CGFloat = 40 // keep at least this many points on-screen in each axis
+        let minX = bounds.minX - frame.width + minVisible
+        let maxX = bounds.maxX - minVisible
+        let minY = bounds.minY - frame.height + minVisible
+        let maxY = bounds.maxY - minVisible
+        let x = min(max(frame.origin.x, minX), maxX)
+        let y = min(max(frame.origin.y, minY), maxY)
+        return CGRect(origin: CGPoint(x: x, y: y), size: frame.size)
     }
 }
 
+/// Thin edge/corner strip thickness for the always-on resize handles, matching
+/// how normal AppKit windows expose their resize regions.
+private let resizeHandleThickness: CGFloat = 6
+
 private struct OverlayContentView: View {
     @ObservedObject var viewModel: PlayerViewModel
-    @ObservedObject var model: OverlayInteractionModel
     let theme: Theme
-    let collapsedSize: CGSize
+    let minSize: CGSize
+    let defaultOrigin: () -> CGPoint
 
     var body: some View {
-        VStack(alignment: .center, spacing: 8) {
-            CollapsedPillView(viewModel: viewModel, theme: theme, onHoverChanged: setExpanded)
-                .frame(width: collapsedSize.width, height: collapsedSize.height)
-            if model.isExpanded {
-                ExpandedLyricsPanelView(viewModel: viewModel, theme: theme, onHoverChanged: setExpanded)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(4)
-        .onHover(perform: setExpanded)
-    }
+        ZStack(alignment: .bottomTrailing) {
+            MiniPlayerBarView(viewModel: viewModel, theme: theme, defaultOrigin: defaultOrigin)
 
-    private func setExpanded(_ expanded: Bool) {
-        model.isExpanded = expanded
+            ResizeHandleView(axis: .horizontal, minSize: minSize, defaultOrigin: defaultOrigin)
+                .frame(width: resizeHandleThickness)
+                .frame(maxHeight: .infinity)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            ResizeHandleView(axis: .vertical, minSize: minSize, defaultOrigin: defaultOrigin)
+                .frame(height: resizeHandleThickness)
+                .frame(maxWidth: .infinity)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+            ResizeHandleView(axis: .both, minSize: minSize, defaultOrigin: defaultOrigin)
+                .frame(width: 14, height: 14)
+        }
     }
 }
