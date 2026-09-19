@@ -18,7 +18,7 @@ while (($#)); do
 done
 
 test "$(uname -s)" = "Darwin" || { echo "Echofloat requires macOS." >&2; exit 1; }
-for tool in swift plutil codesign ditto; do
+for tool in swift plutil codesign ditto sips iconutil; do
     command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
 done
 
@@ -29,6 +29,7 @@ VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 }
 
 cd "$ROOT"
+APP_ICON_OUTPUT="$ROOT/Resources/AppIcon.icns" "$ROOT/scripts/generate-icon.sh"
 if ! $SKIP_BUILD; then
     swift build -c release --product echofloat
 fi
