@@ -90,8 +90,6 @@ If Chrome automation stops working, reset the Apple Events permission and rerun 
 ```bash
 tccutil reset AppleEvents com.echofloat.app
 ./setup.sh
-./scripts/uninstall.sh
-./scripts/uninstall.sh --purge-data
 ```
 
 If Launch at Login shows an approval state, open the app and approve the system prompt. The menu may show `Launch at Login (Approval Required)` until approval is complete.
