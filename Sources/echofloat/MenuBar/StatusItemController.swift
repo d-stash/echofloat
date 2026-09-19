@@ -52,7 +52,11 @@ final class StatusItemController {
         displayModeItem.state = overlayController.showOnAllDisplays ? .off : .on
         menu.addItem(displayModeItem)
 
-        let autostartItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleAutostart), keyEquivalent: "")
+        let autostartTitle =
+            autostartManager.status == .requiresApproval
+            ? "Launch at Login (Approval Required)"
+            : "Launch at Login"
+        let autostartItem = NSMenuItem(title: autostartTitle, action: #selector(toggleAutostart), keyEquivalent: "")
         autostartItem.target = self
         autostartItem.state = autostartManager.isEnabled ? .on : .off
         menu.addItem(autostartItem)
@@ -84,7 +88,17 @@ final class StatusItemController {
     }
 
     @objc private func toggleAutostart() {
-        autostartManager.isEnabled.toggle()
+        do {
+            try autostartManager.setEnabled(!autostartManager.isEnabled)
+        } catch {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Couldn’t update Launch at Login"
+            alert.informativeText = error.localizedDescription
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            NSLog("Echofloat: Launch at Login failed: \(error.localizedDescription)")
+        }
         buildMenu()
     }
 

@@ -31,6 +31,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overlayController = overlay
 
         let autostartManager = AutostartManager()
+        do {
+            try autostartManager.removeLegacyLaunchAgent()
+        } catch {
+            NSLog("Echofloat: Could not remove legacy login item: \(error.localizedDescription)")
+        }
         statusItemController = StatusItemController(
             themeManager: themeManager,
             overlayController: overlay,
