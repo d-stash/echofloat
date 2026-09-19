@@ -21,36 +21,39 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate shell scripts
-        run: rtk bash -n setup.sh scripts/*.sh Tests/*.sh
+        run: bash -n setup.sh scripts/*.sh Tests/*.sh
+
+      - name: Validate workflow commands
+        run: bash Tests/WorkflowChecks.sh
 
       - name: Run Swift tests
         run: |
           GIT_CONFIG_COUNT=1 \
           GIT_CONFIG_KEY_0=safe.bareRepository \
           GIT_CONFIG_VALUE_0=all \
-            rtk swift test --no-parallel
+            swift test --no-parallel
 
       - name: Run animation checks
         run: |
-          rtk mkdir -p .build/ci-checks
-          rtk swiftc Sources/echofloat/Theming/Theme.swift \
+          mkdir -p .build/ci-checks
+          swiftc Sources/echofloat/Theming/Theme.swift \
             Sources/echofloat/Theming/ThemeAnimation.swift \
             Tests/ThemeAnimationChecks.swift \
             -o .build/ci-checks/theme-checks
-          rtk .build/ci-checks/theme-checks
+          .build/ci-checks/theme-checks
 
       - name: Run playback timing checks
         run: |
-          rtk mkdir -p .build/ci-checks
-          rtk swiftc Sources/echofloat/Models/TrackSignature.swift \
+          mkdir -p .build/ci-checks
+          swiftc Sources/echofloat/Models/TrackSignature.swift \
             Sources/echofloat/Models/NowPlayingState.swift \
             Sources/echofloat/Playback/PlaybackClock.swift \
             Tests/PlaybackTimingChecks.swift \
             -o .build/ci-checks/playback-checks
-          rtk .build/ci-checks/playback-checks
+          .build/ci-checks/playback-checks
 
       - name: Verify app packaging
-        run: rtk bash Tests/PackagingChecks.sh
+        run: bash Tests/PackagingChecks.sh
 
       - name: Verify installer lifecycle
-        run: rtk bash Tests/InstallerChecks.sh
+        run: bash Tests/InstallerChecks.sh
