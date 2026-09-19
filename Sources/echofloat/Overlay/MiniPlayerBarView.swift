@@ -21,7 +21,7 @@ struct MiniPlayerBarView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 Rectangle()
-                    .fill(Color.white.opacity(0.12))
+                    .fill(theme.dividerColor)
                     .frame(height: 1)
 
                 HStack(spacing: 22) {
@@ -34,7 +34,7 @@ struct MiniPlayerBarView: View {
                 }
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity)
-                .background(Color.black.opacity(0.15))
+                .background(theme.chromeOverlayColor)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -45,14 +45,15 @@ struct MiniPlayerBarView: View {
         if viewModel.nowPlaying == nil {
             Text("Nothing playing")
                 .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(theme.secondaryTextColor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             LyricsStackView(
                 lyrics: viewModel.lyrics,
                 currentIndex: viewModel.currentLineIndex,
                 fallbackTitle: viewModel.nowPlaying?.track.title ?? "",
-                accentColor: Color(hex: theme.accentColorHex)
+                accentColor: Color(hex: theme.accentColorHex),
+                secondaryColor: theme.secondaryTextColor
             )
         }
     }
@@ -75,6 +76,7 @@ private struct LyricsStackView: View {
     let currentIndex: Int?
     let fallbackTitle: String
     let accentColor: Color
+    let secondaryColor: Color
 
     private let lineHeight: CGFloat = 18
 
@@ -85,7 +87,7 @@ private struct LyricsStackView: View {
                 ForEach(visibleLines(maxLines: maxLines), id: \.offset) { line in
                     Text(line.text)
                         .font(line.isCurrent ? .callout.bold() : .caption2)
-                        .foregroundStyle(line.isCurrent ? accentColor : .white.opacity(0.55))
+                        .foregroundStyle(line.isCurrent ? accentColor : secondaryColor)
                         .shadow(color: line.isCurrent ? accentColor.opacity(0.6) : .clear, radius: 3)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)

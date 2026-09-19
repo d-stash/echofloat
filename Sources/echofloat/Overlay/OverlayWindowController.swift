@@ -92,8 +92,14 @@ final class OverlayWindowController: NSObject {
                 // Update the existing panel in place — destroying and recreating it on
                 // every theme switch/screen change caused a visible flash/pop-in that
                 // read as the overlay "snapping back" to its default position, even
-                // though the underlying stored offset was already correct.
-                (panel.contentView as? NSHostingView<OverlayContentView>)?.rootView = content
+                // though the underlying stored offset was already correct. Always
+                // create a fresh NSHostingView rather than casting to the previous
+                // one's generic type — a failed cast there would silently leave the
+                // panel showing stale content while the menu checkmark already moved.
+                let hosting = NSHostingView(rootView: content)
+                hosting.autoresizingMask = [.width, .height]
+                hosting.frame = NSRect(origin: .zero, size: frame.size)
+                panel.contentView = hosting
                 if panel.frame != frame {
                     panel.setFrame(frame, display: true)
                 }
