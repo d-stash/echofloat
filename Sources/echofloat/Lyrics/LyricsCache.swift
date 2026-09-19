@@ -30,6 +30,8 @@ final class LyricsCache {
             payload = Payload(kind: "plain", lines: nil, plainText: text)
         case .notFound:
             payload = Payload(kind: "notFound", lines: nil, plainText: nil)
+        case .unavailable:
+            return
         }
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: fileURL(for: track), options: .atomic)

@@ -89,6 +89,12 @@ APP_SUPPORT_DIR="${HOME}/Library/Application Support/Echofloat"
 /usr/bin/osascript -e 'tell application id "com.echofloat.app" to quit' \
     >/dev/null 2>&1 || true
 
+APP_EXECUTABLE="$APP_PATH/Contents/MacOS/echofloat"
+if [[ -x "$APP_EXECUTABLE" ]]; then
+    "$APP_EXECUTABLE" --unregister-login-item || \
+        die "Failed to unregister Launch at Login; the app was not removed."
+fi
+
 safe_remove_tree "$APP_PATH" "$APP_PATH"
 safe_remove_file "$LEGACY_LAUNCH_AGENT" "$LEGACY_LAUNCH_AGENT"
 

@@ -5,7 +5,7 @@ Thanks for helping improve Echofloat.
 ## Prerequisites
 
 - macOS 13 or later.
-- Swift 5.9 or later.
+- Swift 6.1 or later.
 - Apple Command Line Tools.
 
 ## Local checks

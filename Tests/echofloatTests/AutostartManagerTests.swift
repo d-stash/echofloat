@@ -83,6 +83,27 @@ private func makeLegacyLaunchAgentsDirectory() throws -> URL {
     }
 }
 
+@Test func unregisterErrorsPropagate() {
+    let service = FakeLoginItemService()
+    service.status = .enabled
+    service.unregisterError = FakeError.unregister
+
+    let manager = AutostartManager(service: service)
+
+    #expect(throws: FakeError.self) {
+        try manager.unregisterIfRegistered()
+    }
+}
+
+@Test func unregisteringAnUnregisteredAppIsANoOp() throws {
+    let service = FakeLoginItemService()
+    let manager = AutostartManager(service: service)
+
+    try manager.unregisterIfRegistered()
+
+    #expect(service.unregisterCalls == 0)
+}
+
 @Test func removesLegacyLaunchAgent() throws {
     let directory = try makeLegacyLaunchAgentsDirectory()
     defer { try? FileManager.default.removeItem(at: directory.deletingLastPathComponent()) }

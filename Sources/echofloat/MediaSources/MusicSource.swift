@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 protocol MusicSource {
     var nowPlayingUpdates: AsyncStream<NowPlayingState?> { get }
     func play()

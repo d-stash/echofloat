@@ -1,119 +1,296 @@
-import Foundation
+@preconcurrency import Foundation
 
-/// Reads now-playing state from the public Distributed Notifications that
-/// Music.app and Spotify broadcast on every track/state change.
-///
-/// This deliberately avoids the private MediaRemote framework: as of macOS
-/// Sonoma 15.3+, `MRMediaRemoteGetNowPlayingInfo` returns an empty
-/// dictionary for any process that isn't Apple-signed, so that API is no
-/// longer usable by third-party apps (confirmed via direct probing). These
-/// distributed notifications are a separate, public, per-app mechanism
-/// unaffected by that lockdown.
-///
-/// Trade-off: neither app's notification carries playback position, so this
-/// source estimates elapsed time via a cheap AppleScript position poll once
-/// a second while something is playing.
+/// Reads public playback notifications from Music and Spotify, then corrects
+/// elapsed time with AppleScript while the selected player is active.
+@MainActor
 final class DistributedNowPlayingSource: MusicSource {
-    private static let musicNotificationName = NSNotification.Name("com.apple.Music.playerInfo")
-    private static let spotifyNotificationName = NSNotification.Name("com.spotify.client.PlaybackStateChanged")
+    private enum Player: String, CaseIterable, Sendable {
+        case music = "Music"
+        case spotify = "Spotify"
 
+        var notificationName: NSNotification.Name {
+            switch self {
+            case .music:
+                NSNotification.Name("com.apple.Music.playerInfo")
+            case .spotify:
+                NSNotification.Name("com.spotify.client.PlaybackStateChanged")
+            }
+        }
+    }
+
+    private static let snapshotSeparator = "\u{1F}"
+
+    private struct NotificationPayload: Sendable {
+        let title: String?
+        let artist: String?
+        let album: String?
+        let durationSeconds: Int?
+        let isPlaying: Bool
+    }
+
+    private let scriptExecutor: AppleScriptExecuting
+    private let notificationCenter: DistributedNotificationCenter?
+    private let positionPollIntervalNanoseconds: UInt64?
+    private let loadsInitialSnapshots: Bool
     private var continuation: AsyncStream<NowPlayingState?>.Continuation?
     private var observers: [NSObjectProtocol] = []
+    private var observationTask: Task<Void, Never>?
     private var positionPollTask: Task<Void, Never>?
-    private var lastState: NowPlayingState?
+    private var states: [Player: NowPlayingState] = [:]
+    private var playingRecency: [Player: Int] = [:]
+    private var playersUpdatedByNotification: Set<Player> = []
+    private var activityCounter = 0
+    private var selectedPlayer: Player?
+
+    init(
+        scriptExecutor: AppleScriptExecuting = LiveAppleScriptExecutor(),
+        notificationCenter: DistributedNotificationCenter? = .default(),
+        positionPollIntervalNanoseconds: UInt64? = 1_000_000_000,
+        loadsInitialSnapshots: Bool = true
+    ) {
+        self.scriptExecutor = scriptExecutor
+        self.notificationCenter = notificationCenter
+        self.positionPollIntervalNanoseconds = positionPollIntervalNanoseconds
+        self.loadsInitialSnapshots = loadsInitialSnapshots
+    }
 
     lazy var nowPlayingUpdates: AsyncStream<NowPlayingState?> = AsyncStream { [weak self] continuation in
         guard let self else { return }
         self.continuation = continuation
         self.startObserving()
+        if loadsInitialSnapshots {
+            self.loadInitialSnapshots()
+        }
         self.startPositionPolling()
     }
 
     deinit {
-        let center = DistributedNotificationCenter.default()
-        observers.forEach { center.removeObserver($0) }
+        if let notificationCenter {
+            observers.forEach { notificationCenter.removeObserver($0) }
+        }
+        observationTask?.cancel()
         positionPollTask?.cancel()
     }
 
     private func startObserving() {
-        let center = DistributedNotificationCenter.default()
-        let music = center.addObserver(
-            forName: Self.musicNotificationName,
-            object: nil,
-            queue: .main
-        ) { [weak self] note in
-            self?.handle(note, appName: "Music")
+        guard let notificationCenter else { return }
+        observers = Player.allCases.map { player in
+            notificationCenter.addObserver(
+                forName: player.notificationName,
+                object: nil,
+                queue: .main
+            ) { [weak self] note in
+                let payload = Self.notificationPayload(from: note.userInfo ?? [:])
+                Task { @MainActor [weak self] in
+                    self?.receive(payload, from: player, capturedAt: Date())
+                }
+            }
         }
-        let spotify = center.addObserver(
-            forName: Self.spotifyNotificationName,
-            object: nil,
-            queue: .main
-        ) { [weak self] note in
-            self?.handle(note, appName: "Spotify")
-        }
-        observers = [music, spotify]
     }
 
-    private func handle(_ note: Notification, appName: String) {
-        guard let info = note.userInfo, let title = info["Name"] as? String, !title.isEmpty else {
-            lastState = nil
-            continuation?.yield(nil)
+    private func loadInitialSnapshots() {
+        observationTask = Task { [weak self] in
+            guard let self else { return }
+            var snapshots: [(Player, NowPlayingState?)] = []
+            for player in Player.allCases {
+                snapshots.append((player, await self.querySnapshot(for: player)))
+            }
+            for (player, state) in snapshots {
+                if !self.playersUpdatedByNotification.contains(player) {
+                    self.update(state, for: player, recordsActivity: false)
+                }
+            }
+        }
+    }
+
+    func receive(
+        _ info: [AnyHashable: Any],
+        appName: String,
+        capturedAt: Date = Date()
+    ) {
+        guard let player = Player(rawValue: appName) else { return }
+        playersUpdatedByNotification.insert(player)
+        receive(Self.notificationPayload(from: info), from: player, capturedAt: capturedAt)
+    }
+
+    private func receive(
+        _ payload: NotificationPayload,
+        from player: Player,
+        capturedAt: Date
+    ) {
+        guard let title = payload.title, !title.isEmpty else {
+            update(nil, for: player, recordsActivity: false)
             return
         }
 
-        let artist = info["Artist"] as? String ?? "Unknown Artist"
-        let album = info["Album"] as? String
-        let durationSeconds = durationSeconds(from: info)
-        let stateString = info["Player State"] as? String ?? ""
-        let isPlaying = stateString.caseInsensitiveCompare("Playing") == .orderedSame
-
-        let track = TrackSignature(title: title, artist: artist, album: album, durationSeconds: durationSeconds)
         let state = NowPlayingState(
-            track: track,
-            sourceAppName: appName,
-            status: isPlaying ? .playing : .paused,
+            track: TrackSignature(
+                title: title,
+                artist: payload.artist ?? "Unknown Artist",
+                album: payload.album,
+                durationSeconds: payload.durationSeconds
+            ),
+            sourceAppName: player.rawValue,
+            status: payload.isPlaying ? .playing : .paused,
             elapsedSeconds: 0,
-            capturedAt: Date()
+            capturedAt: capturedAt
         )
-        lastState = state
-        continuation?.yield(state)
+        update(state, for: player, recordsActivity: payload.isPlaying)
     }
 
-    private func durationSeconds(from info: [AnyHashable: Any]) -> Int? {
-        // Music.app broadcasts "Total Time" in ms; Spotify broadcasts "Duration" in ms.
+    private func update(
+        _ state: NowPlayingState?,
+        for player: Player,
+        recordsActivity: Bool
+    ) {
+        states[player] = state
+        if recordsActivity {
+            activityCounter += 1
+            playingRecency[player] = activityCounter
+        }
+        selectedPlayer = selectPlayer()
+        continuation?.yield(selectedPlayer.flatMap { states[$0] })
+    }
+
+    private func selectPlayer() -> Player? {
+        let playing = Player.allCases.filter { states[$0]?.status == .playing }
+        if !playing.isEmpty {
+            return playing.max {
+                let left = playingRecency[$0, default: 0]
+                let right = playingRecency[$1, default: 0]
+                return left == right
+                    ? Player.allCases.firstIndex(of: $0)! > Player.allCases.firstIndex(of: $1)!
+                    : left < right
+            }
+        }
+        if let selectedPlayer,
+           playingRecency[selectedPlayer] != nil,
+           states[selectedPlayer] != nil {
+            return selectedPlayer
+        }
+        let paused = Player.allCases.filter { states[$0] != nil }
+        return paused.max {
+            let left = playingRecency[$0, default: 0]
+            let right = playingRecency[$1, default: 0]
+            return left == right
+                ? Player.allCases.firstIndex(of: $0)! > Player.allCases.firstIndex(of: $1)!
+                : left < right
+        }
+    }
+
+    nonisolated private static func notificationPayload(
+        from info: [AnyHashable: Any]
+    ) -> NotificationPayload {
+        let stateString = info["Player State"] as? String ?? ""
+        return NotificationPayload(
+            title: info["Name"] as? String,
+            artist: info["Artist"] as? String,
+            album: info["Album"] as? String,
+            durationSeconds: durationSeconds(from: info),
+            isPlaying: stateString.caseInsensitiveCompare("Playing") == .orderedSame
+        )
+    }
+
+    nonisolated private static func durationSeconds(from info: [AnyHashable: Any]) -> Int? {
         if let ms = info["Total Time"] as? Double { return Int(ms / 1000) }
         if let ms = info["Duration"] as? Double { return Int(ms / 1000) }
         return nil
     }
 
     private func startPositionPolling() {
+        guard let interval = positionPollIntervalNanoseconds else { return }
         positionPollTask = Task { [weak self] in
             while !Task.isCancelled {
-                if let self, let current = self.lastState, current.status == .playing,
-                   let elapsed = try? await Self.queryPosition(appName: current.sourceAppName) {
-                    let refreshed = NowPlayingState(
+                guard let self else { return }
+                if let player = self.selectedPlayer,
+                   let current = self.states[player],
+                   current.status == .playing,
+                   let elapsed = try? await self.queryPosition(for: player) {
+                    self.states[player] = NowPlayingState(
                         track: current.track,
                         sourceAppName: current.sourceAppName,
                         status: current.status,
                         elapsedSeconds: elapsed,
                         capturedAt: Date()
                     )
-                    self.lastState = refreshed
-                    self.continuation?.yield(refreshed)
+                    self.continuation?.yield(self.states[player])
                 }
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                try? await Task.sleep(nanoseconds: interval)
             }
         }
     }
 
-    private static func queryPosition(appName: String) async throws -> Double? {
-        let script = "tell application \"\(appName)\" to get player position"
-        guard let output = try await AppleScriptRunner.run(script) else { return nil }
+    private func queryPosition(for player: Player) async throws -> Double? {
+        let script = "tell application \"\(player.rawValue)\" to get player position"
+        guard let output = try await scriptExecutor.run(script) else { return nil }
         return Double(output)
     }
 
-    func play() { AppleScriptRunner.fireAndForget("tell application \"\(lastState?.sourceAppName ?? "Music")\" to play") }
-    func pause() { AppleScriptRunner.fireAndForget("tell application \"\(lastState?.sourceAppName ?? "Music")\" to pause") }
-    func next() { AppleScriptRunner.fireAndForget("tell application \"\(lastState?.sourceAppName ?? "Music")\" to next track") }
-    func previous() { AppleScriptRunner.fireAndForget("tell application \"\(lastState?.sourceAppName ?? "Music")\" to previous track") }
+    private func querySnapshot(for player: Player) async -> NowPlayingState? {
+        guard let output = try? await scriptExecutor.run(Self.snapshotScript(for: player)) else {
+            return nil
+        }
+        let fields = output.components(separatedBy: Self.snapshotSeparator)
+        guard fields.count == 6, !fields[0].isEmpty else { return nil }
+        let status: NowPlayingState.PlaybackStatus =
+            fields[4].caseInsensitiveCompare("playing") == .orderedSame ? .playing : .paused
+        return NowPlayingState(
+            track: TrackSignature(
+                title: fields[0],
+                artist: fields[1].isEmpty ? "Unknown Artist" : fields[1],
+                album: fields[2].isEmpty ? nil : fields[2],
+                durationSeconds: Double(fields[3]).map(Int.init)
+            ),
+            sourceAppName: player.rawValue,
+            status: status,
+            elapsedSeconds: Double(fields[5]) ?? 0,
+            capturedAt: Date()
+        )
+    }
+
+    private static func snapshotScript(for player: Player) -> String {
+        let durationExpression = player == .spotify
+            ? "(duration of current track) / 1000"
+            : "duration of current track"
+        return """
+        if application "\(player.rawValue)" is not running then return ""
+        tell application "\(player.rawValue)"
+            if player state is stopped then return ""
+            set separator to ASCII character 31
+            return (name of current track) & separator & (artist of current track) & separator & (album of current track) & separator & (\(durationExpression) as text) & separator & (player state as text) & separator & (player position as text)
+        end tell
+        """
+    }
+
+    static func snapshotOutput(
+        title: String,
+        artist: String,
+        album: String,
+        duration: Double,
+        state: String,
+        position: Double
+    ) -> String {
+        [title, artist, album, String(duration), state, String(position)]
+            .joined(separator: snapshotSeparator)
+    }
+
+    private var selectedAppName: String {
+        selectedPlayer?.rawValue ?? Player.music.rawValue
+    }
+
+    func play() {
+        scriptExecutor.fireAndForget("tell application \"\(selectedAppName)\" to play")
+    }
+
+    func pause() {
+        scriptExecutor.fireAndForget("tell application \"\(selectedAppName)\" to pause")
+    }
+
+    func next() {
+        scriptExecutor.fireAndForget("tell application \"\(selectedAppName)\" to next track")
+    }
+
+    func previous() {
+        scriptExecutor.fireAndForget("tell application \"\(selectedAppName)\" to previous track")
+    }
 }

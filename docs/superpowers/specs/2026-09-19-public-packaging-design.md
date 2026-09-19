@@ -20,7 +20,7 @@ This release does not publish a downloadable prebuilt app. A broadly distributed
 
 - macOS 13 Ventura or newer
 - Apple Silicon or Intel Mac, built natively on the user's machine
-- Apple Command Line Tools with Swift 5.9 or newer
+- Apple Command Line Tools with Swift 6.1 or newer
 - Google Chrome for YouTube Music integration
 - Optional Apple Music or Spotify playback
 

@@ -1,15 +1,24 @@
 import Foundation
 
+@MainActor
 protocol LyricsProvider {
     func lyrics(for track: TrackSignature) async -> LyricsResult
 }
 
+@MainActor
 protocol HTTPClient {
     func data(for request: URLRequest) async throws -> (Data, URLResponse)
 }
 
-extension URLSession: HTTPClient {
+@MainActor
+struct URLSessionHTTPClient: HTTPClient {
+    private let session: URLSession
+
+    init(session: URLSession = .shared) {
+        self.session = session
+    }
+
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
-        try await data(for: request, delegate: nil)
+        try await session.data(for: request, delegate: nil)
     }
 }

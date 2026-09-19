@@ -6,6 +6,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let themeManager: ThemeManager
     private let overlayController: OverlayWindowController
     private let autostartManager: AutostartManager
+    private let approvalPresenter: @MainActor () -> Void
     private let menu = NSMenu()
     private let visibilityItem = NSMenuItem(title: "", action: #selector(toggleOverlayVisibility), keyEquivalent: "")
     private let themeMenu = NSMenu()
@@ -17,20 +18,18 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     init(
         themeManager: ThemeManager,
         overlayController: OverlayWindowController,
-        autostartManager: AutostartManager
+        autostartManager: AutostartManager,
+        approvalPresenter: @escaping @MainActor () -> Void = StatusItemController.presentApprovalGuidance
     ) {
         self.themeManager = themeManager
         self.overlayController = overlayController
         self.autostartManager = autostartManager
+        self.approvalPresenter = approvalPresenter
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         super.init()
         statusItem.button?.image = NSImage(systemSymbolName: "music.note.list", accessibilityDescription: "Echofloat")
         configureMenu()
         refreshMenuState()
-    }
-
-    deinit {
-        NSStatusBar.system.removeStatusItem(statusItem)
     }
 
     private func configureMenu() {
@@ -100,6 +99,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func toggleAutostart() {
         do {
             try autostartManager.setEnabled(!autostartManager.isEnabled)
+            if autostartManager.status == .requiresApproval {
+                approvalPresenter()
+            }
         } catch {
             let alert = NSAlert()
             alert.alertStyle = .warning
@@ -110,6 +112,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             NSLog("Echofloat: Launch at Login failed: \(error.localizedDescription)")
         }
         refreshMenuState()
+    }
+
+    private static func presentApprovalGuidance() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Launch at Login approval required"
+        alert.informativeText = "Open System Settings > General > Login Items, then enable Echofloat."
+        alert.addButton(withTitle: "Open Login Items")
+        alert.addButton(withTitle: "Later")
+        if alert.runModal() == .alertFirstButtonReturn,
+           let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func quit() {

@@ -5,9 +5,10 @@ import Testing
 
 private final class MutableLoginItemService: LoginItemServicing {
     var status: LoginItemStatus = .notRegistered
+    var statusAfterRegistration: LoginItemStatus = .enabled
 
     func register() throws {
-        status = .enabled
+        status = statusAfterRegistration
     }
 
     func unregister() throws {
@@ -48,6 +49,42 @@ private func reflectedStatusItem(from controller: StatusItemController) -> NSSta
 
 private func autostartMenuItem(in menu: NSMenu) -> NSMenuItem? {
     menu.items.first { $0.title.hasPrefix("Launch at Login") }
+}
+
+@Test @MainActor func registrationRequiringApprovalPresentsActionableGuidance() throws {
+    let service = MutableLoginItemService()
+    service.statusAfterRegistration = .requiresApproval
+    let cacheDirectory = try makeStatusItemTestDirectory()
+    defer { try? FileManager.default.removeItem(at: cacheDirectory.deletingLastPathComponent()) }
+
+    let viewModel = PlayerViewModel(
+        musicSource: SilentMusicSource(),
+        lyricsProvider: NeverLyricsProvider(),
+        cache: LyricsCache(directory: cacheDirectory)
+    )
+    let themeDefaults = try #require(UserDefaults(suiteName: "StatusItemApprovalTests.\(UUID().uuidString)"))
+    let overlayDefaults = try #require(UserDefaults(suiteName: "StatusItemApprovalTests.overlay.\(UUID().uuidString)"))
+    let themeManager = ThemeManager(defaults: themeDefaults)
+    var guidancePresentations = 0
+    let controller = StatusItemController(
+        themeManager: themeManager,
+        overlayController: OverlayWindowController(
+            viewModel: viewModel,
+            themeManager: themeManager,
+            defaults: overlayDefaults
+        ),
+        autostartManager: AutostartManager(service: service),
+        approvalPresenter: { guidancePresentations += 1 }
+    )
+
+    let statusItem = try #require(reflectedStatusItem(from: controller))
+    defer { NSStatusBar.system.removeStatusItem(statusItem) }
+    let selector = NSSelectorFromString("toggleAutostart")
+    #expect((controller as NSObject).responds(to: selector))
+
+    _ = (controller as NSObject).perform(selector)
+
+    #expect(guidancePresentations == 1)
 }
 
 @Test @MainActor func menuNeedsUpdateRefreshesAutostartStatusBeforeOpen() throws {

@@ -94,6 +94,30 @@ test ! -e "$APP"
 test -f "$SUPPORT_FILE"
 test "$(HOME="$HOME_ROOT" defaults read com.echofloat.app InstallerCheckValue)" = "keep-me"
 
+UNREGISTER_LOG="$TMP_ROOT/unregister.log"
+mkdir -p "$APP/Contents/MacOS"
+cat > "$APP/Contents/MacOS/echofloat" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$1" > "$UNREGISTER_LOG"
+EOF
+chmod +x "$APP/Contents/MacOS/echofloat"
+HOME="$HOME_ROOT" UNREGISTER_LOG="$UNREGISTER_LOG" \
+    "$ROOT/scripts/uninstall.sh" --install-dir "$INSTALL_DIR"
+test "$(cat "$UNREGISTER_LOG")" = "--unregister-login-item"
+test ! -e "$APP"
+
+mkdir -p "$APP/Contents/MacOS"
+cat > "$APP/Contents/MacOS/echofloat" <<'EOF'
+#!/bin/bash
+echo "simulated unregister failure" >&2
+exit 23
+EOF
+chmod +x "$APP/Contents/MacOS/echofloat"
+expect_failure "Failed to unregister Launch at Login" \
+    env HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir "$INSTALL_DIR"
+test -e "$APP"
+rm -rf "$APP"
+
 HOME="$HOME_ROOT" run_with_swiftpm_git_override \
     "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
 HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --purge-data --install-dir "$INSTALL_DIR"

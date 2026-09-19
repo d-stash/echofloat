@@ -1,9 +1,27 @@
 import Foundation
 
+@MainActor
+protocol AppleScriptExecuting {
+    func run(_ script: String) async throws -> String?
+    func fireAndForget(_ script: String)
+}
+
+@MainActor
+struct LiveAppleScriptExecutor: AppleScriptExecuting {
+    func run(_ script: String) async throws -> String? {
+        try await AppleScriptRunner.run(script)
+    }
+
+    func fireAndForget(_ script: String) {
+        AppleScriptRunner.fireAndForget(script)
+    }
+}
+
 /// Runs AppleScript via `/usr/bin/osascript`. Used instead of the private
 /// MediaRemote API, which macOS Sonoma 15.3+ restricts to Apple-signed
 /// processes only. AppleScript/Apple Events are the public, still-working
 /// path for talking to Music.app, Spotify, and browsers.
+@MainActor
 enum AppleScriptRunner {
     /// Runs `script` and returns trimmed stdout, or nil on error/no output.
     static func run(_ script: String) async throws -> String? {

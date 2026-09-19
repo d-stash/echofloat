@@ -20,9 +20,13 @@ private final class FakeMusicSource: MusicSource {
 private final class FakeLyricsProvider: LyricsProvider {
     private(set) var requestedTracks: [TrackSignature] = []
     var resultToReturn: LyricsResult = .notFound
+    var queuedResults: [LyricsResult] = []
 
     func lyrics(for track: TrackSignature) async -> LyricsResult {
         requestedTracks.append(track)
+        if !queuedResults.isEmpty {
+            return queuedResults.removeFirst()
+        }
         return resultToReturn
     }
 }
@@ -104,4 +108,47 @@ private func track(
 
     viewModel.playPause()
     #expect(source.playCalls == 1)
+}
+
+@Test @MainActor func retriesTransientLyricsFailureForSameTrackWithoutCachingIt() async throws {
+    let source = FakeMusicSource()
+    let provider = FakeLyricsProvider()
+    provider.queuedResults = [.unavailable, .plain("Recovered")]
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let cache = LyricsCache(directory: directory)
+    let song = track("Retry Song", elapsed: 0)
+    let viewModel = PlayerViewModel(musicSource: source, lyricsProvider: provider, cache: cache)
+    viewModel.start()
+
+    source.push(song)
+    try await Task.sleep(nanoseconds: 50_000_000)
+    #expect(viewModel.lyrics == .unavailable)
+    #expect(cache.load(for: song.track) == nil)
+
+    source.push(song)
+    try await Task.sleep(nanoseconds: 50_000_000)
+
+    #expect(provider.requestedTracks.count == 2)
+    #expect(viewModel.lyrics == .plain("Recovered"))
+    #expect(cache.load(for: song.track) == .plain("Recovered"))
+    viewModel.stop()
+}
+
+@Test @MainActor func cachesAuthoritativeNotFoundResult() async throws {
+    let source = FakeMusicSource()
+    let provider = FakeLyricsProvider()
+    provider.resultToReturn = .notFound
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let cache = LyricsCache(directory: directory)
+    let song = track("Missing Song", elapsed: 0)
+    let viewModel = PlayerViewModel(musicSource: source, lyricsProvider: provider, cache: cache)
+    viewModel.start()
+
+    source.push(song)
+    try await Task.sleep(nanoseconds: 50_000_000)
+
+    #expect(cache.load(for: song.track) == .notFound)
+    viewModel.stop()
 }

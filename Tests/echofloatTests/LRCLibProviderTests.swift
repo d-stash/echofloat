@@ -3,10 +3,25 @@ import Testing
 @testable import echofloat
 
 private struct FakeHTTPClient: HTTPClient {
-    let statusCode: Int
-    let body: String
+    enum Result {
+        case response(statusCode: Int, body: String)
+        case failure
+    }
+
+    let result: Result
+
+    init(statusCode: Int, body: String) {
+        result = .response(statusCode: statusCode, body: body)
+    }
+
+    init(result: Result) {
+        self.result = result
+    }
 
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        guard case .response(let statusCode, let body) = result else {
+            throw URLError(.timedOut)
+        }
         let response = HTTPURLResponse(
             url: request.url!,
             statusCode: statusCode,
@@ -17,7 +32,7 @@ private struct FakeHTTPClient: HTTPClient {
     }
 }
 
-@Test func returnsSyncedLyricsWhenPresent() async {
+@Test @MainActor func returnsSyncedLyricsWhenPresent() async {
     let json = #"{"syncedLyrics":"[00:01.00]Hello\n","plainLyrics":"Hello"}"#
     let provider = LRCLibProvider(httpClient: FakeHTTPClient(statusCode: 200, body: json))
     let result = await provider.lyrics(for: TrackSignature(title: "T", artist: "A", album: nil, durationSeconds: nil))
@@ -28,21 +43,33 @@ private struct FakeHTTPClient: HTTPClient {
     #expect(lines == [LyricLine(timestamp: 1.0, text: "Hello")])
 }
 
-@Test func fallsBackToPlainLyricsWhenNoSyncAvailable() async {
+@Test @MainActor func fallsBackToPlainLyricsWhenNoSyncAvailable() async {
     let json = #"{"syncedLyrics":null,"plainLyrics":"Just words"}"#
     let provider = LRCLibProvider(httpClient: FakeHTTPClient(statusCode: 200, body: json))
     let result = await provider.lyrics(for: TrackSignature(title: "T", artist: "A", album: nil, durationSeconds: nil))
     #expect(result == .plain("Just words"))
 }
 
-@Test func returnsNotFoundOn404() async {
+@Test @MainActor func returnsNotFoundOn404() async {
     let provider = LRCLibProvider(httpClient: FakeHTTPClient(statusCode: 404, body: "{}"))
     let result = await provider.lyrics(for: TrackSignature(title: "T", artist: "A", album: nil, durationSeconds: nil))
     #expect(result == .notFound)
 }
 
-@Test func returnsNotFoundOnMalformedJSON() async {
+@Test @MainActor func returnsUnavailableOnMalformedJSON() async {
     let provider = LRCLibProvider(httpClient: FakeHTTPClient(statusCode: 200, body: "not json"))
     let result = await provider.lyrics(for: TrackSignature(title: "T", artist: "A", album: nil, durationSeconds: nil))
-    #expect(result == .notFound)
+    #expect(result == .unavailable)
+}
+
+@Test @MainActor func returnsUnavailableOnServerFailure() async {
+    let provider = LRCLibProvider(httpClient: FakeHTTPClient(statusCode: 503, body: "{}"))
+    let result = await provider.lyrics(for: TrackSignature(title: "T", artist: "A", album: nil, durationSeconds: nil))
+    #expect(result == .unavailable)
+}
+
+@Test @MainActor func returnsUnavailableOnNetworkFailure() async {
+    let provider = LRCLibProvider(httpClient: FakeHTTPClient(result: .failure))
+    let result = await provider.lyrics(for: TrackSignature(title: "T", artist: "A", album: nil, durationSeconds: nil))
+    #expect(result == .unavailable)
 }

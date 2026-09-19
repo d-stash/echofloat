@@ -12,7 +12,7 @@ Animated, always-visible lyrics and playback controls for macOS.
 ## Requirements
 
 - macOS 13 or later.
-- Apple Command Line Tools for source builds.
+- Apple Command Line Tools with Swift 6.1 or newer for source builds.
 - Google Chrome for YouTube Music playback control.
 - Approval for macOS Automation when prompted for Music.app, Spotify, or Chrome.
 
@@ -92,7 +92,7 @@ tccutil reset AppleEvents com.echofloat.app
 ./setup.sh
 ```
 
-If Launch at Login shows an approval state, open the app and approve the system prompt. The menu may show `Launch at Login (Approval Required)` until approval is complete.
+If Launch at Login shows an approval state, open **System Settings > General > Login Items** and enable Echofloat. The menu may show `Launch at Login (Approval Required)` until approval is complete.
 
 ## Development
 
@@ -109,7 +109,7 @@ The source build is ad-hoc signed locally. This project does not ship a notarize
 
 ## Architecture
 
-Echofloat is a Swift 5.9 macOS app built with Swift Package Manager.
+Echofloat is a Swift 6.1 macOS app built with Swift Package Manager.
 
 - `Sources/echofloat/App` wires the app together.
 - `Sources/echofloat/MediaSources` reads now-playing state from Apple Music, Spotify, and Chrome-based YouTube Music.

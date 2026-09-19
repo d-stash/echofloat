@@ -28,6 +28,15 @@ final class AutostartManager {
         }
     }
 
+    func unregisterIfRegistered() throws {
+        switch status {
+        case .enabled, .requiresApproval:
+            try service.unregister()
+        case .notRegistered, .notFound:
+            return
+        }
+    }
+
     func removeLegacyLaunchAgent() throws {
         guard fileManager.fileExists(atPath: legacyPlistURL.path) else { return }
         try fileManager.removeItem(at: legacyPlistURL)

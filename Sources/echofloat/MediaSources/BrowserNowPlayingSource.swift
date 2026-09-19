@@ -9,6 +9,7 @@ import Foundation
 ///   2. Approve the macOS Automation permission prompt for Echofloat -> Chrome.
 /// Until both are granted, `osascript` calls fail silently and this source
 /// simply yields nil, same as "nothing playing".
+@MainActor
 final class BrowserNowPlayingSource: MusicSource {
     private var continuation: AsyncStream<NowPlayingState?>.Continuation?
     private var pollTask: Task<Void, Never>?

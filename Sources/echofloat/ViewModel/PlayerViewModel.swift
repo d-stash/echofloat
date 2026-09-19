@@ -63,7 +63,7 @@ final class PlayerViewModel: ObservableObject {
             return
         }
 
-        if state.track != previousTrack {
+        if state.track != previousTrack || lyrics == .unavailable {
             lyricsTask?.cancel()
             lyricsTask = nil
             if let cached = cache.load(for: state.track) {
@@ -86,7 +86,11 @@ final class PlayerViewModel: ObservableObject {
               nowPlaying?.track == track,
               !Task.isCancelled else { return }
         lyrics = fetched
-        cache.store(fetched, for: track)
+        if fetched == .unavailable {
+            NSLog("Echofloat: Lyrics request temporarily unavailable for \(track.title)")
+        } else {
+            cache.store(fetched, for: track)
+        }
         updateCurrentLine(elapsed: nowPlaying?.elapsedSeconds ?? 0)
     }
 

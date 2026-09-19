@@ -1,11 +1,12 @@
 import Foundation
 
+@MainActor
 struct LRCLibProvider: LyricsProvider {
     private let httpClient: HTTPClient
     private let baseURL: URL
 
     init(
-        httpClient: HTTPClient = URLSession.shared,
+        httpClient: HTTPClient = URLSessionHTTPClient(),
         baseURL: URL = URL(string: "https://lrclib.net/api/get")!
     ) {
         self.httpClient = httpClient
@@ -18,13 +19,17 @@ struct LRCLibProvider: LyricsProvider {
     }
 
     func lyrics(for track: TrackSignature) async -> LyricsResult {
-        guard let url = requestURL(for: track) else { return .notFound }
+        guard let url = requestURL(for: track) else { return .unavailable }
 
         do {
             let (data, response) = try await httpClient.data(for: URLRequest(url: url))
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            guard let http = response as? HTTPURLResponse else {
+                return .unavailable
+            }
+            if http.statusCode == 404 {
                 return .notFound
             }
+            guard http.statusCode == 200 else { return .unavailable }
             let decoded = try JSONDecoder().decode(Response.self, from: data)
             if let synced = decoded.syncedLyrics, !synced.isEmpty {
                 return .synced(LRCParser.parse(synced))
@@ -34,7 +39,7 @@ struct LRCLibProvider: LyricsProvider {
             }
             return .notFound
         } catch {
-            return .notFound
+            return .unavailable
         }
     }
 

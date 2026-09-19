@@ -5,27 +5,33 @@ import Foundation
 /// `.playing`, yields nil (nothing playing). Playback commands are routed to
 /// whichever source is currently "active" (the one behind the last non-nil
 /// playing state), falling back to the first source if none is active yet.
+@MainActor
 final class CompositeNowPlayingSource: MusicSource {
     private let sources: [MusicSource]
     private var continuation: AsyncStream<NowPlayingState?>.Continuation?
     private var latestBySource: [Int: NowPlayingState?] = [:]
     private var activeSourceIndex: Int = 0
+    private var sourceTasks: [Task<Void, Never>] = []
+    let nowPlayingUpdates: AsyncStream<NowPlayingState?>
 
     init(sources: [MusicSource]) {
         precondition(!sources.isEmpty, "CompositeNowPlayingSource requires at least one source")
         self.sources = sources
-    }
-
-    lazy var nowPlayingUpdates: AsyncStream<NowPlayingState?> = AsyncStream { [weak self] continuation in
-        guard let self else { return }
+        let (stream, continuation) = AsyncStream<NowPlayingState?>.makeStream()
+        nowPlayingUpdates = stream
         self.continuation = continuation
         for (index, source) in self.sources.enumerated() {
-            Task {
+            sourceTasks.append(Task { @MainActor [weak self, source] in
                 for await state in source.nowPlayingUpdates {
+                    guard let self else { return }
                     self.receive(state, from: index)
                 }
-            }
+            })
         }
+    }
+
+    deinit {
+        sourceTasks.forEach { $0.cancel() }
     }
 
     private func receive(_ state: NowPlayingState?, from index: Int) {

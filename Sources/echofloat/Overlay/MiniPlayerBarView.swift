@@ -270,6 +270,8 @@ private struct LyricsStackView: View {
             }
         case .plain(let text) where !text.isEmpty:
             return [Line(offset: 0, text: text, isCurrent: true)]
+        case .unavailable:
+            return [Line(offset: 0, text: "Lyrics temporarily unavailable", isCurrent: true)]
         default:
             return [Line(offset: 0, text: fallbackTitle, isCurrent: true)]
         }
