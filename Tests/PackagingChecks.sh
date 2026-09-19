@@ -10,7 +10,10 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 FRESH_ICON="$TMP_ROOT/AppIcon.icns"
 APP_ICON_OUTPUT="$FRESH_ICON" "$ROOT/scripts/generate-icon.sh"
 
-"$ROOT/scripts/package-app.sh" --output-dir "$TMP_ROOT"
+GIT_CONFIG_COUNT=1 \
+GIT_CONFIG_KEY_0=safe.bareRepository \
+GIT_CONFIG_VALUE_0=all \
+    "$ROOT/scripts/package-app.sh" --output-dir "$TMP_ROOT"
 
 APP="$TMP_ROOT/Echofloat.app"
 PLIST="$APP/Contents/Info.plist"

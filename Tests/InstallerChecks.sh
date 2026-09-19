@@ -25,6 +25,13 @@ ln -s "$REAL_INSTALL_DIR" "$INSTALL_DIR"
 ln -s / "$ROOT_INSTALL_LINK"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
+run_with_swiftpm_git_override() {
+    GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0=safe.bareRepository \
+    GIT_CONFIG_VALUE_0=all \
+        "$@"
+}
+
 expect_failure() {
     local expected="$1"
     shift
@@ -46,7 +53,8 @@ expect_failure() {
 }
 
 setup_output="$(
-    HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
+    HOME="$HOME_ROOT" run_with_swiftpm_git_override \
+        "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
 )"
 case "$setup_output" in
     *"Echofloat installed at $REAL_INSTALL_DIR/Echofloat.app"*) ;;
@@ -67,7 +75,8 @@ echo "legacy" > "$LAUNCH_AGENT"
 HOME="$HOME_ROOT" defaults write com.echofloat.app InstallerCheckValue -string keep-me
 echo "old build" > "$APP/Contents/Resources/replaced.txt"
 
-HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
+HOME="$HOME_ROOT" run_with_swiftpm_git_override \
+    "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
 test ! -e "$APP/Contents/Resources/replaced.txt"
 
 uninstall_output="$(
@@ -85,7 +94,8 @@ test ! -e "$APP"
 test -f "$SUPPORT_FILE"
 test "$(HOME="$HOME_ROOT" defaults read com.echofloat.app InstallerCheckValue)" = "keep-me"
 
-HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
+HOME="$HOME_ROOT" run_with_swiftpm_git_override \
+    "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$INSTALL_DIR"
 HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --purge-data --install-dir "$INSTALL_DIR"
 test ! -e "$APP"
 test ! -e "$SUPPORT_DIR"
@@ -96,16 +106,22 @@ if HOME="$HOME_ROOT" defaults read com.echofloat.app >/dev/null 2>&1; then
 fi
 
 expect_failure "Refusing to install to /." \
-    env HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$ROOT_INSTALL_LINK"
+    env HOME="$HOME_ROOT" GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.bareRepository \
+        GIT_CONFIG_VALUE_0=all "$ROOT/setup.sh" --skip-tests --no-launch \
+        --install-dir "$ROOT_INSTALL_LINK"
 expect_failure "Refusing to uninstall from /." \
     env HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir "$ROOT_INSTALL_LINK"
 expect_failure "Refusing to uninstall from /." \
     env HOME="$HOME_ROOT" "$ROOT/scripts/uninstall.sh" --install-dir /
 expect_failure "Install directory parent must exist:" \
-    env HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$MISSING_PARENT_INSTALL_DIR"
+    env HOME="$HOME_ROOT" GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.bareRepository \
+        GIT_CONFIG_VALUE_0=all "$ROOT/setup.sh" --skip-tests --no-launch \
+        --install-dir "$MISSING_PARENT_INSTALL_DIR"
 test ! -e "$TMP_ROOT/missing-parent"
 expect_failure "Install directory basename must not be . or .." \
-    env HOME="$HOME_ROOT" "$ROOT/setup.sh" --skip-tests --no-launch --install-dir "$TRAVERSAL_INSTALL_DIR"
+    env HOME="$HOME_ROOT" GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.bareRepository \
+        GIT_CONFIG_VALUE_0=all "$ROOT/setup.sh" --skip-tests --no-launch \
+        --install-dir "$TRAVERSAL_INSTALL_DIR"
 test ! -e "$TMP_ROOT/traversal-segment"
 
 echo "Installer checks passed"

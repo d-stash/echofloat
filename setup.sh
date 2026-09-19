@@ -88,7 +88,7 @@ if $RUN_TESTS; then
         GIT_CONFIG_COUNT=1 \
         GIT_CONFIG_KEY_0=safe.bareRepository \
         GIT_CONFIG_VALUE_0=all \
-            swift test
+            swift test --no-parallel
     )
 fi
 
