@@ -8,12 +8,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
-        guard let mediaRemoteClient = LiveMediaRemoteClient() else {
-            NSLog("Echofloat: MediaRemote framework unavailable; now-playing detection disabled")
-            return
-        }
-
-        let musicSource = SystemNowPlayingSource(client: mediaRemoteClient)
+        // MediaRemote (private framework) is locked to Apple-signed processes only as of
+        // macOS Sonoma 15.3+, so third-party detection now goes through public Distributed
+        // Notifications (Music.app, Spotify) plus AppleScript/JS tab scraping (YouTube Music).
+        let musicSource = CompositeNowPlayingSource(sources: [
+            DistributedNowPlayingSource(),
+            BrowserNowPlayingSource()
+        ])
         let cacheDirectory = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Echofloat/LyricsCache", isDirectory: true)
