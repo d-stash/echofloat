@@ -171,3 +171,76 @@ private func notification(
     let titles = received.compactMap { $0?.track.title }
     #expect(titles == ["Old Song", "New Song"])
 }
+
+@Test @MainActor func stalePositionQueryDoesNotOverwriteNewerSameTrackRevision() async {
+    let executor = FakeAppleScriptExecutor()
+    executor.suspendPositionQueries = true
+    let source = DistributedNowPlayingSource(
+        scriptExecutor: executor,
+        notificationCenter: nil,
+        positionPollIntervalNanoseconds: 1_000_000,
+        loadsInitialSnapshots: false
+    )
+    var received: [NowPlayingState?] = []
+    let collector = Task { @MainActor in
+        for await state in source.nowPlayingUpdates {
+            received.append(state)
+        }
+    }
+    await Task.yield()
+
+    source.receive(
+        notification(title: "Same Song", state: "Playing"),
+        appName: "Music",
+        capturedAt: Date(timeIntervalSince1970: 1)
+    )
+    for _ in 0..<100 where !executor.positionQueryStarted {
+        try? await Task.sleep(nanoseconds: 1_000_000)
+    }
+    #expect(executor.positionQueryStarted)
+
+    source.receive(
+        notification(title: "Same Song", state: "Playing"),
+        appName: "Music",
+        capturedAt: Date(timeIntervalSince1970: 2)
+    )
+    executor.suspendPositionQueries = false
+    executor.completePositionQuery(with: "42")
+    try? await Task.sleep(nanoseconds: 20_000_000)
+    collector.cancel()
+    await collector.value
+
+    let states = received.compactMap { $0 }
+    #expect(states.map(\.capturedAt) == [
+        Date(timeIntervalSince1970: 1),
+        Date(timeIntervalSince1970: 2),
+    ])
+    #expect(states.map(\.elapsedSeconds) == [0, 0])
+}
+
+@Test @MainActor func repeatedPositionPollsUpdateUnchangedState() async {
+    let executor = FakeAppleScriptExecutor()
+    executor.outputs["Music"] = "7"
+    let source = DistributedNowPlayingSource(
+        scriptExecutor: executor,
+        notificationCenter: nil,
+        positionPollIntervalNanoseconds: 1_000_000,
+        loadsInitialSnapshots: false
+    )
+    var received: [NowPlayingState?] = []
+    let collector = Task { @MainActor in
+        for await state in source.nowPlayingUpdates {
+            received.append(state)
+        }
+    }
+    await Task.yield()
+
+    source.receive(notification(title: "Polling Song", state: "Playing"), appName: "Music")
+    for _ in 0..<100 where !received.contains(where: { $0?.elapsedSeconds == 7 }) {
+        try? await Task.sleep(nanoseconds: 1_000_000)
+    }
+    collector.cancel()
+    await collector.value
+
+    #expect(received.contains { $0?.elapsedSeconds == 7 })
+}

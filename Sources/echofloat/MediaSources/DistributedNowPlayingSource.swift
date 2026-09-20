@@ -37,6 +37,7 @@ final class DistributedNowPlayingSource: MusicSource {
     private var observationTask: Task<Void, Never>?
     private var positionPollTask: Task<Void, Never>?
     private var states: [Player: NowPlayingState] = [:]
+    private var stateRevisions: [Player: UInt64] = [:]
     private var playingRecency: [Player: Int] = [:]
     private var playersUpdatedByNotification: Set<Player> = []
     private var activityCounter = 0
@@ -143,6 +144,7 @@ final class DistributedNowPlayingSource: MusicSource {
         for player: Player,
         recordsActivity: Bool
     ) {
+        stateRevisions[player, default: 0] &+= 1
         states[player] = state
         if recordsActivity {
             activityCounter += 1
@@ -204,20 +206,23 @@ final class DistributedNowPlayingSource: MusicSource {
                 guard let self else { return }
                 if let player = self.selectedPlayer,
                    let current = self.states[player],
-                   current.status == .playing,
-                   let elapsed = try? await self.queryPosition(for: player) {
-                    if self.selectedPlayer == player,
-                       let latest = self.states[player],
-                       latest.status == .playing,
-                       latest.track == current.track {
-                        self.states[player] = NowPlayingState(
-                            track: latest.track,
-                            sourceAppName: latest.sourceAppName,
-                            status: latest.status,
-                            elapsedSeconds: elapsed,
-                            capturedAt: Date()
-                        )
-                        self.continuation?.yield(self.states[player])
+                   current.status == .playing {
+                    let revision = self.stateRevisions[player, default: 0]
+                    if let elapsed = try? await self.queryPosition(for: player) {
+                        if self.selectedPlayer == player,
+                           self.stateRevisions[player] == revision,
+                           let latest = self.states[player],
+                           latest.status == .playing,
+                           latest.track == current.track {
+                            self.states[player] = NowPlayingState(
+                                track: latest.track,
+                                sourceAppName: latest.sourceAppName,
+                                status: latest.status,
+                                elapsedSeconds: elapsed,
+                                capturedAt: Date()
+                            )
+                            self.continuation?.yield(self.states[player])
+                        }
                     }
                 }
                 try? await Task.sleep(nanoseconds: interval)
