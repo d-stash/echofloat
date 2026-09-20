@@ -52,6 +52,7 @@ private func autostartMenuItem(in menu: NSMenu) -> NSMenuItem? {
 }
 
 @Test @MainActor func registrationRequiringApprovalPresentsActionableGuidance() throws {
+    _ = NSApplication.shared
     let service = MutableLoginItemService()
     service.statusAfterRegistration = .requiresApproval
     let cacheDirectory = try makeStatusItemTestDirectory()
@@ -88,6 +89,7 @@ private func autostartMenuItem(in menu: NSMenu) -> NSMenuItem? {
 }
 
 @Test @MainActor func menuNeedsUpdateRefreshesAutostartStatusBeforeOpen() throws {
+    _ = NSApplication.shared
     let service = MutableLoginItemService()
     let cacheDirectory = try makeStatusItemTestDirectory()
     defer { try? FileManager.default.removeItem(at: cacheDirectory.deletingLastPathComponent()) }
