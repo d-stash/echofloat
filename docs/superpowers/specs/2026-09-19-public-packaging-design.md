@@ -20,7 +20,8 @@ This release does not publish a downloadable prebuilt app. A broadly distributed
 
 - macOS 13 Ventura or newer
 - Apple Silicon or Intel Mac, built natively on the user's machine
-- Apple Command Line Tools with Swift 6.1 or newer
+- Apple Command Line Tools with Swift 5.9 or newer for build/install
+- Swift 6.1 or newer for the full Swift Testing suite
 - Google Chrome for YouTube Music integration
 - Optional Apple Music or Spotify playback
 
@@ -29,6 +30,9 @@ Full Xcode and third-party project generators are not required.
 ## Packaging Architecture
 
 The Swift package remains the source of truth. Packaging uses repository-owned shell scripts and standard macOS tools:
+
+- `Package.swift` is the Swift-5.9-compatible app manifest.
+- `Package@swift-6.1.swift` adds the exact Swift Testing dependency and test target for newer toolchains.
 
 - `setup.sh` is the user-facing installer.
 - `scripts/package-app.sh` builds and assembles an app bundle.
@@ -48,7 +52,7 @@ The Swift package remains the source of truth. Packaging uses repository-owned s
 
 `setup.sh` will:
 
-1. Run the test suite before installation.
+1. Reject Swift older than 5.9. Run the full test suite on Swift 6.1 or newer; on Swift 5.9/5.10, explain that the unavailable suite is skipped.
 2. Call the packaging script.
 3. Install atomically to `~/Applications/Echofloat.app` without requiring `sudo`.
 4. Replace only a prior Echofloat installation at that exact path.

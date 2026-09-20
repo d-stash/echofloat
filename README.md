@@ -12,7 +12,7 @@ Animated, always-visible lyrics and playback controls for macOS.
 ## Requirements
 
 - macOS 13 or later.
-- Apple Command Line Tools with Swift 6.1 or newer for source builds.
+- Apple Command Line Tools with Swift 5.9 or newer for source builds.
 - Google Chrome for YouTube Music playback control.
 - Approval for macOS Automation when prompted for Music.app, Spotify, or Chrome.
 
@@ -26,7 +26,7 @@ cd echofloat
 ./setup.sh
 ```
 
-`./setup.sh` builds, tests, packages, installs to `~/Applications/Echofloat.app`, and launches the app by default.
+`./setup.sh` builds, packages, installs to `~/Applications/Echofloat.app`, and launches the app by default. With Swift 6.1 or newer it also runs the full test suite. Swift 5.9 through 6.0 can build and install the app, but setup clearly skips the unavailable Swift Testing suite.
 
 ## First-run setup
 
@@ -99,17 +99,22 @@ If Launch at Login shows an approval state, open **System Settings > General > L
 Build and test from the repository root:
 
 ```bash
-swift test
 swift build
 bash Tests/PackagingChecks.sh
 bash Tests/InstallerChecks.sh
+```
+
+The app builds with Swift 5.9 or newer. The full Swift Testing suite requires Swift 6.1 or newer:
+
+```bash
+swift test --no-parallel
 ```
 
 The source build is ad-hoc signed locally. This project does not ship a notarized downloadable binary.
 
 ## Architecture
 
-Echofloat is a Swift 6.1 macOS app built with Swift Package Manager.
+Echofloat uses a Swift 5.9 base package for the app and a version-specific Swift 6.1 package manifest for the full test suite.
 
 - `Sources/echofloat/App` wires the app together.
 - `Sources/echofloat/MediaSources` reads now-playing state from Apple Music, Spotify, and Chrome-based YouTube Music.

@@ -26,6 +26,9 @@ jobs:
       - name: Validate workflow commands
         run: bash Tests/WorkflowChecks.sh
 
+      - name: Verify toolchain compatibility manifests
+        run: bash Tests/ToolchainCompatibilityChecks.sh
+
       - name: Run Swift tests
         run: |
           GIT_CONFIG_COUNT=1 \

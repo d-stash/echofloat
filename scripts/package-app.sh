@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=swift-toolchain.sh
+source "$ROOT/scripts/swift-toolchain.sh"
 OUTPUT_DIR="$ROOT/dist"
 SKIP_BUILD=false
 
@@ -21,6 +23,14 @@ test "$(uname -s)" = "Darwin" || { echo "Echofloat requires macOS." >&2; exit 1;
 for tool in swift plutil codesign ditto sips iconutil; do
     command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
 done
+SWIFT_VERSION="$(detect_swift_version)" || {
+    echo "Unable to detect Swift. Install Apple Command Line Tools with Swift 5.9 or newer." >&2
+    exit 1
+}
+swift_supports_install "$SWIFT_VERSION" || {
+    echo "Echofloat requires Swift 5.9 or newer; found Swift $SWIFT_VERSION." >&2
+    exit 1
+}
 
 VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {

@@ -10,15 +10,31 @@ final class PlayerViewModel: ObservableObject {
     private let musicSource: MusicSource
     private let lyricsProvider: LyricsProvider
     private let cache: LyricsCache
+    private let lyricsRetryBaseNanoseconds: UInt64
+    private let lyricsRetryMaximumNanoseconds: UInt64
     private var listenTask: Task<Void, Never>?
     private var lyricsTask: Task<Void, Never>?
     private var lyricTickerTask: Task<Void, Never>?
     private var lifecycleVersion = 0
+    private var lyricsRequestGeneration = 0
+    private var lyricsRetryAttempt = 0
 
-    init(musicSource: MusicSource, lyricsProvider: LyricsProvider, cache: LyricsCache) {
+    init(
+        musicSource: MusicSource,
+        lyricsProvider: LyricsProvider,
+        cache: LyricsCache,
+        lyricsRetryBaseNanoseconds: UInt64 = 1_000_000_000,
+        lyricsRetryMaximumNanoseconds: UInt64 = 30_000_000_000
+    ) {
         self.musicSource = musicSource
         self.lyricsProvider = lyricsProvider
         self.cache = cache
+        let safeRetryBase = max(100_000_000, lyricsRetryBaseNanoseconds)
+        self.lyricsRetryBaseNanoseconds = safeRetryBase
+        self.lyricsRetryMaximumNanoseconds = max(
+            safeRetryBase,
+            lyricsRetryMaximumNanoseconds
+        )
     }
 
     func start() {
@@ -45,8 +61,7 @@ final class PlayerViewModel: ObservableObject {
     func stop() {
         listenTask?.cancel()
         listenTask = nil
-        lyricsTask?.cancel()
-        lyricsTask = nil
+        cancelLyricsRequest()
         lyricTickerTask?.cancel()
         lyricTickerTask = nil
         lifecycleVersion += 1
@@ -56,29 +71,100 @@ final class PlayerViewModel: ObservableObject {
         let previousTrack = nowPlaying?.track
         nowPlaying = state
         guard let state else {
-            lyricsTask?.cancel()
-            lyricsTask = nil
+            cancelLyricsRequest()
+            lyricsRetryAttempt = 0
             lyrics = .notFound
             currentLineIndex = nil
             return
         }
 
-        if state.track != previousTrack || lyrics == .unavailable {
-            lyricsTask?.cancel()
-            lyricsTask = nil
+        if state.track != previousTrack {
+            cancelLyricsRequest()
+            lyricsRetryAttempt = 0
             if let cached = cache.load(for: state.track) {
                 lyrics = cached
             } else {
-                let track = state.track
-                lyricsTask = Task { [weak self] in
-                    guard let self else { return }
-                    let fetched = await self.lyricsProvider.lyrics(for: track)
-                    guard !Task.isCancelled else { return }
-                    self.publish(fetched, for: track, version: version)
-                }
+                startLyricsRequest(for: state.track, version: version)
             }
+        } else if lyrics == .unavailable, lyricsTask == nil {
+            startLyricsRequest(
+                for: state.track,
+                version: version,
+                delayNanoseconds: retryDelayNanoseconds()
+            )
         }
         updateCurrentLine(elapsed: state.elapsedSeconds)
+    }
+
+    private func startLyricsRequest(
+        for track: TrackSignature,
+        version: Int,
+        delayNanoseconds: UInt64 = 0
+    ) {
+        lyricsRequestGeneration += 1
+        let requestGeneration = lyricsRequestGeneration
+        lyricsTask = Task { [weak self] in
+            guard let self else { return }
+            if delayNanoseconds > 0 {
+                do {
+                    try await Task.sleep(nanoseconds: delayNanoseconds)
+                } catch {
+                    return
+                }
+            }
+            guard !Task.isCancelled else { return }
+            let fetched = await self.lyricsProvider.lyrics(for: track)
+            guard !Task.isCancelled else { return }
+            self.completeLyricsRequest(
+                fetched,
+                for: track,
+                version: version,
+                requestGeneration: requestGeneration
+            )
+        }
+    }
+
+    private func completeLyricsRequest(
+        _ fetched: LyricsResult,
+        for track: TrackSignature,
+        version: Int,
+        requestGeneration: Int
+    ) {
+        guard requestGeneration == lyricsRequestGeneration,
+              version == lifecycleVersion,
+              nowPlaying?.track == track else {
+            return
+        }
+        lyricsTask = nil
+        publish(fetched, for: track, version: version)
+        if fetched == .unavailable {
+            lyricsRetryAttempt += 1
+            startLyricsRequest(
+                for: track,
+                version: version,
+                delayNanoseconds: retryDelayNanoseconds()
+            )
+        } else {
+            lyricsRetryAttempt = 0
+        }
+    }
+
+    private func cancelLyricsRequest() {
+        lyricsRequestGeneration += 1
+        lyricsTask?.cancel()
+        lyricsTask = nil
+    }
+
+    private func retryDelayNanoseconds() -> UInt64 {
+        var delay = lyricsRetryBaseNanoseconds
+        guard lyricsRetryAttempt > 1 else { return delay }
+        for _ in 1..<lyricsRetryAttempt {
+            if delay >= lyricsRetryMaximumNanoseconds / 2 {
+                return lyricsRetryMaximumNanoseconds
+            }
+            delay *= 2
+        }
+        return min(delay, lyricsRetryMaximumNanoseconds)
     }
 
     private func publish(_ fetched: LyricsResult, for track: TrackSignature, version: Int) {

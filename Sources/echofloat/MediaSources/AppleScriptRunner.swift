@@ -8,6 +8,8 @@ protocol AppleScriptExecuting {
 
 @MainActor
 struct LiveAppleScriptExecutor: AppleScriptExecuting {
+    nonisolated init() {}
+
     func run(_ script: String) async throws -> String? {
         try await AppleScriptRunner.run(script)
     }

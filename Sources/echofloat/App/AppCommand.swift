@@ -1,7 +1,6 @@
 import Foundation
 
 enum AppCommand {
-    @MainActor
     static func run(arguments: [String], autostartManager: AutostartManager) -> Int32? {
         guard arguments.dropFirst().first == "--unregister-login-item" else {
             return nil

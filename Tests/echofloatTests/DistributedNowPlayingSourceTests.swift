@@ -5,11 +5,20 @@ import Testing
 @MainActor
 private final class FakeAppleScriptExecutor: AppleScriptExecuting {
     var outputs: [String: String] = [:]
+    var suspendPositionQueries = false
     private(set) var runScripts: [String] = []
     private(set) var commandScripts: [String] = []
+    private(set) var positionQueryStarted = false
+    private var positionContinuation: CheckedContinuation<String?, Never>?
 
     func run(_ script: String) async throws -> String? {
         runScripts.append(script)
+        if script.contains("player position"), suspendPositionQueries {
+            positionQueryStarted = true
+            return await withCheckedContinuation { continuation in
+                positionContinuation = continuation
+            }
+        }
         if script.contains("application \"Music\"") {
             return outputs["Music"]
         }
@@ -21,6 +30,11 @@ private final class FakeAppleScriptExecutor: AppleScriptExecuting {
 
     func fireAndForget(_ script: String) {
         commandScripts.append(script)
+    }
+
+    func completePositionQuery(with output: String?) {
+        positionContinuation?.resume(returning: output)
+        positionContinuation = nil
     }
 }
 
@@ -122,4 +136,38 @@ private func notification(
     let selected = try #require(yielded)
 
     #expect(selected.sourceAppName == "Music")
+}
+
+@Test @MainActor func stalePositionQueryDoesNotOverwriteNewerTrack() async {
+    let executor = FakeAppleScriptExecutor()
+    executor.suspendPositionQueries = true
+    let source = DistributedNowPlayingSource(
+        scriptExecutor: executor,
+        notificationCenter: nil,
+        positionPollIntervalNanoseconds: 1_000_000,
+        loadsInitialSnapshots: false
+    )
+    var received: [NowPlayingState?] = []
+    let collector = Task { @MainActor in
+        for await state in source.nowPlayingUpdates {
+            received.append(state)
+        }
+    }
+    await Task.yield()
+
+    source.receive(notification(title: "Old Song", state: "Playing"), appName: "Music")
+    for _ in 0..<100 where !executor.positionQueryStarted {
+        try? await Task.sleep(nanoseconds: 1_000_000)
+    }
+    #expect(executor.positionQueryStarted)
+
+    source.receive(notification(title: "New Song", state: "Playing"), appName: "Music")
+    executor.suspendPositionQueries = false
+    executor.completePositionQuery(with: "42")
+    try? await Task.sleep(nanoseconds: 20_000_000)
+    collector.cancel()
+    await collector.value
+
+    let titles = received.compactMap { $0?.track.title }
+    #expect(titles == ["Old Song", "New Song"])
 }

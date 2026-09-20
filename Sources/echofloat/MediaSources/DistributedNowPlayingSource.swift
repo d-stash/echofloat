@@ -206,14 +206,19 @@ final class DistributedNowPlayingSource: MusicSource {
                    let current = self.states[player],
                    current.status == .playing,
                    let elapsed = try? await self.queryPosition(for: player) {
-                    self.states[player] = NowPlayingState(
-                        track: current.track,
-                        sourceAppName: current.sourceAppName,
-                        status: current.status,
-                        elapsedSeconds: elapsed,
-                        capturedAt: Date()
-                    )
-                    self.continuation?.yield(self.states[player])
+                    if self.selectedPlayer == player,
+                       let latest = self.states[player],
+                       latest.status == .playing,
+                       latest.track == current.track {
+                        self.states[player] = NowPlayingState(
+                            track: latest.track,
+                            sourceAppName: latest.sourceAppName,
+                            status: latest.status,
+                            elapsedSeconds: elapsed,
+                            capturedAt: Date()
+                        )
+                        self.continuation?.yield(self.states[player])
+                    }
                 }
                 try? await Task.sleep(nanoseconds: interval)
             }

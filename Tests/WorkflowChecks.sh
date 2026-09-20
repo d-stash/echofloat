@@ -9,4 +9,6 @@ if /usr/bin/grep -n '\<rtk\>' "$WORKFLOW"; then
     exit 1
 fi
 
+/usr/bin/grep -F 'bash Tests/ToolchainCompatibilityChecks.sh' "$WORKFLOW" >/dev/null
+
 echo "Workflow checks passed"

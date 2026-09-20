@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/swift-toolchain.sh
+source "$ROOT/scripts/swift-toolchain.sh"
 INSTALL_DIR="${HOME}/Applications"
 RUN_TESTS=true
 LAUNCH=true
@@ -81,15 +83,23 @@ while (($#)); do
 done
 
 INSTALL_DIR="$(resolve_install_dir "$INSTALL_DIR")"
+SWIFT_VERSION="$(detect_swift_version)" || die "Unable to detect Swift. Install Apple Command Line Tools with Swift 5.9 or newer."
+swift_supports_install "$SWIFT_VERSION" || \
+    die "Echofloat requires Swift 5.9 or newer; found Swift $SWIFT_VERSION."
 
 if $RUN_TESTS; then
-    (
-        cd "$ROOT"
-        GIT_CONFIG_COUNT=1 \
-        GIT_CONFIG_KEY_0=safe.bareRepository \
-        GIT_CONFIG_VALUE_0=all \
-            swift test --no-parallel
-    )
+    if swift_supports_full_tests "$SWIFT_VERSION"; then
+        (
+            cd "$ROOT"
+            GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0=safe.bareRepository \
+            GIT_CONFIG_VALUE_0=all \
+                swift test --no-parallel
+        )
+    else
+        echo "Swift $SWIFT_VERSION supports building and installing Echofloat."
+        echo "Full tests require Swift 6.1 or newer; skipping tests."
+    fi
 fi
 
 "$ROOT/scripts/package-app.sh"

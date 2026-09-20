@@ -5,18 +5,24 @@ Thanks for helping improve Echofloat.
 ## Prerequisites
 
 - macOS 13 or later.
-- Swift 6.1 or later.
-- Apple Command Line Tools.
+- Apple Command Line Tools with Swift 5.9 or later for app builds.
+- Swift 6.1 or later for the full Swift Testing suite.
 
 ## Local checks
 
 Run these from the repository root:
 
 ```bash
-swift test
 swift build
 bash Tests/PackagingChecks.sh
 bash Tests/InstallerChecks.sh
+```
+
+With Swift 6.1 or newer, also run:
+
+```bash
+swift test --no-parallel
+bash Tests/ToolchainCompatibilityChecks.sh
 ```
 
 ## Coding expectations

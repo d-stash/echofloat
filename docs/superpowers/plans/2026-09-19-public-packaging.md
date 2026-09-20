@@ -6,7 +6,7 @@
 
 **Architecture:** Keep SwiftPM as the only build system. Repository scripts build the release executable, assemble and validate a conventional app bundle, install it under `~/Applications`, and uninstall it without elevated privileges. Replace the legacy LaunchAgent writer with an injectable wrapper around `SMAppService.mainApp`, then document and continuously verify the complete workflow.
 
-**Tech Stack:** Swift 6.1+, SwiftPM, AppKit, ServiceManagement, Swift Testing 6.2.4, POSIX shell, `plutil`, `codesign`, `iconutil`, GitHub Actions macOS runners
+**Tech Stack:** Swift 5.9+ for app build/install, Swift 6.1+ for Swift Testing 6.2.4, SwiftPM version-specific manifests, AppKit, ServiceManagement, POSIX shell, `plutil`, `codesign`, `iconutil`, GitHub Actions macOS runners
 
 **Spec:** `docs/superpowers/specs/2026-09-19-public-packaging-design.md`
 
@@ -14,7 +14,8 @@
 
 - Support macOS 13 Ventura or newer.
 - Support native builds on Apple Silicon and Intel Macs.
-- Require Swift 6.1 or newer.
+- Require Swift 5.9 or newer for app build/install.
+- Require Swift 6.1 or newer for the full Swift Testing suite.
 - Require only Apple Command Line Tools; do not require full Xcode or a third-party project generator.
 - Install to `~/Applications/Echofloat.app` by default without `sudo`.
 - Use bundle identifier `com.echofloat.app`.
@@ -25,6 +26,19 @@
 - Do not collect browser session tokens, telemetry, or analytics.
 - Preserve existing user preferences and lyrics cache during install/update.
 - Use only repository-owned artwork and documentation.
+
+## Compatibility Amendment
+
+The final compatibility architecture supersedes earlier single-manifest and
+always-run-tests snippets in this historical plan:
+
+- `Package.swift` uses Swift tools 5.9 and declares only the executable.
+- `Package@swift-6.1.swift` adds exact `swift-testing` 6.2.4 and
+  `echofloatTests`; SwiftPM selects it automatically on Swift 6.1+.
+- `setup.sh` rejects Swift older than 5.9, runs tests on Swift 6.1+, and emits a
+  non-error skip message on Swift 5.9/5.10 before continuing to package/install.
+- `Tests/ToolchainCompatibilityChecks.sh` validates version parsing, manifest
+  contents, base-manifest parsing/building, and Swift 6.1 manifest selection.
 
 ---
 
@@ -828,7 +842,8 @@ Do not add badges that point to workflows or releases until those endpoints exis
 
 Create `CONTRIBUTING.md` covering:
 
-- macOS 13+ and Swift 6.1+ prerequisites
+- macOS 13+ and Swift 5.9+ app-build prerequisites
+- Swift 6.1+ prerequisite for the full test suite
 - `swift test`
 - `swift build`
 - `bash Tests/PackagingChecks.sh`

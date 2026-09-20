@@ -31,6 +31,43 @@ private final class FakeLyricsProvider: LyricsProvider {
     }
 }
 
+private final class ControlledRetryLyricsProvider: LyricsProvider {
+    private(set) var requestCount = 0
+    private var continuations: [CheckedContinuation<LyricsResult, Never>] = []
+
+    func lyrics(for track: TrackSignature) async -> LyricsResult {
+        requestCount += 1
+        if requestCount == 1 {
+            return .unavailable
+        }
+        return await withCheckedContinuation { continuation in
+            continuations.append(continuation)
+        }
+    }
+
+    func completePending(with result: LyricsResult) {
+        let pending = continuations
+        continuations.removeAll()
+        pending.forEach { $0.resume(returning: result) }
+    }
+}
+
+private final class TrackControlledLyricsProvider: LyricsProvider {
+    private(set) var requestedTracks: [TrackSignature] = []
+    private var continuations: [String: CheckedContinuation<LyricsResult, Never>] = [:]
+
+    func lyrics(for track: TrackSignature) async -> LyricsResult {
+        requestedTracks.append(track)
+        return await withCheckedContinuation { continuation in
+            continuations[track.title] = continuation
+        }
+    }
+
+    func complete(_ title: String, with result: LyricsResult) {
+        continuations.removeValue(forKey: title)?.resume(returning: result)
+    }
+}
+
 private func track(
     _ title: String,
     elapsed: Double,
@@ -118,7 +155,13 @@ private func track(
     defer { try? FileManager.default.removeItem(at: directory) }
     let cache = LyricsCache(directory: directory)
     let song = track("Retry Song", elapsed: 0)
-    let viewModel = PlayerViewModel(musicSource: source, lyricsProvider: provider, cache: cache)
+    let viewModel = PlayerViewModel(
+        musicSource: source,
+        lyricsProvider: provider,
+        cache: cache,
+        lyricsRetryBaseNanoseconds: 100_000_000,
+        lyricsRetryMaximumNanoseconds: 100_000_000
+    )
     viewModel.start()
 
     source.push(song)
@@ -126,9 +169,7 @@ private func track(
     #expect(viewModel.lyrics == .unavailable)
     #expect(cache.load(for: song.track) == nil)
 
-    source.push(song)
-    try await Task.sleep(nanoseconds: 50_000_000)
-
+    try await Task.sleep(nanoseconds: 100_000_000)
     #expect(provider.requestedTracks.count == 2)
     #expect(viewModel.lyrics == .plain("Recovered"))
     #expect(cache.load(for: song.track) == .plain("Recovered"))
@@ -150,5 +191,59 @@ private func track(
     try await Task.sleep(nanoseconds: 50_000_000)
 
     #expect(cache.load(for: song.track) == .notFound)
+    viewModel.stop()
+}
+
+@Test @MainActor func sameTrackUpdatesDoNotCancelSlowTransientRetry() async throws {
+    let source = FakeMusicSource()
+    let provider = ControlledRetryLyricsProvider()
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let viewModel = PlayerViewModel(
+        musicSource: source,
+        lyricsProvider: provider,
+        cache: LyricsCache(directory: directory)
+    )
+    viewModel.start()
+
+    source.push(track("Retry Song", elapsed: 0))
+    try await Task.sleep(nanoseconds: 1_100_000_000)
+    #expect(provider.requestCount == 2)
+
+    source.push(track("Retry Song", elapsed: 1))
+    source.push(track("Retry Song", elapsed: 2))
+    source.push(track("Retry Song", elapsed: 3))
+    try await Task.sleep(nanoseconds: 50_000_000)
+
+    #expect(provider.requestCount == 2)
+    provider.completePending(with: .plain("Recovered"))
+    try await Task.sleep(nanoseconds: 50_000_000)
+    #expect(viewModel.lyrics == .plain("Recovered"))
+    viewModel.stop()
+}
+
+@Test @MainActor func newTrackCancelsOldRequestAndStartsImmediately() async throws {
+    let source = FakeMusicSource()
+    let provider = TrackControlledLyricsProvider()
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let viewModel = PlayerViewModel(
+        musicSource: source,
+        lyricsProvider: provider,
+        cache: LyricsCache(directory: directory)
+    )
+    viewModel.start()
+
+    source.push(track("Old Song", elapsed: 0))
+    try await Task.sleep(nanoseconds: 20_000_000)
+    source.push(track("New Song", elapsed: 0))
+    try await Task.sleep(nanoseconds: 20_000_000)
+
+    #expect(provider.requestedTracks.map(\.title) == ["Old Song", "New Song"])
+    provider.complete("Old Song", with: .plain("Old lyrics"))
+    provider.complete("New Song", with: .plain("New lyrics"))
+    try await Task.sleep(nanoseconds: 20_000_000)
+
+    #expect(viewModel.lyrics == .plain("New lyrics"))
     viewModel.stop()
 }

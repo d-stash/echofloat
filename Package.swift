@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 5.9
 import PackageDescription
 
 let package = Package(
@@ -7,20 +7,7 @@ let package = Package(
     products: [
         .executable(name: "echofloat", targets: ["echofloat"]),
     ],
-    dependencies: [
-        .package(
-            url: "https://github.com/swiftlang/swift-testing.git",
-            exact: "6.2.4"
-        ),
-    ],
     targets: [
         .executableTarget(name: "echofloat"),
-        .testTarget(
-            name: "echofloatTests",
-            dependencies: [
-                "echofloat",
-                .product(name: "Testing", package: "swift-testing"),
-            ]
-        ),
     ]
 )
