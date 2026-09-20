@@ -9,16 +9,21 @@ Animated, always-visible lyrics and playback controls for macOS.
 - A menu bar app with theme controls, visibility controls, and Launch at Login.
 - A lightweight local build that installs into `~/Applications/Echofloat.app`.
 
-## Requirements
+## Run locally
 
-- macOS 13 or later.
-- Apple Command Line Tools with Swift 5.9 or newer for source builds.
-- Google Chrome for YouTube Music playback control.
-- Approval for macOS Automation when prompted for Music.app, Spotify, or Chrome.
+Prerequisites:
 
-## Install
+- macOS 13 or later
+- Git
+- Apple Command Line Tools with Swift 5.9 or newer
 
-Clone the source and run the installer:
+Install the Command Line Tools if needed:
+
+```bash
+xcode-select --install
+```
+
+Then clone, build, install, and launch Echofloat:
 
 ```bash
 git clone https://github.com/d-stash/echofloat.git
@@ -26,7 +31,13 @@ cd echofloat
 ./setup.sh
 ```
 
-`./setup.sh` builds, packages, installs to `~/Applications/Echofloat.app`, and launches the app by default. With Swift 6.1 or newer it also runs the full test suite. Swift 5.9 through 6.0 can build and install the app, but setup clearly skips the unavailable Swift Testing suite.
+The app is installed at `~/Applications/Echofloat.app`. To run a development build without installing the app:
+
+```bash
+swift run echofloat
+```
+
+Google Chrome is only required for YouTube Music. macOS will request Automation access when Echofloat first controls Chrome, Music, or Spotify.
 
 ## First-run setup
 
