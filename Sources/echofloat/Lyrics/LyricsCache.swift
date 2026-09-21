@@ -29,7 +29,7 @@ final class LyricsCache {
         case .plain(let text):
             payload = Payload(kind: "plain", lines: nil, plainText: text)
         case .notFound:
-            payload = Payload(kind: "notFound", lines: nil, plainText: nil)
+            return
         case .unavailable:
             return
         }
@@ -45,7 +45,7 @@ final class LyricsCache {
         switch payload.kind {
         case "synced": return .synced(payload.lines ?? [])
         case "plain": return .plain(payload.plainText ?? "")
-        case "notFound": return .notFound
+        case "notFound": return nil
         default: return nil
         }
     }

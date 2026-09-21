@@ -176,7 +176,7 @@ private func track(
     viewModel.stop()
 }
 
-@Test @MainActor func cachesAuthoritativeNotFoundResult() async throws {
+@Test @MainActor func doesNotCacheNotFoundResult() async throws {
     let source = FakeMusicSource()
     let provider = FakeLyricsProvider()
     provider.resultToReturn = .notFound
@@ -190,7 +190,8 @@ private func track(
     source.push(song)
     try await Task.sleep(nanoseconds: 50_000_000)
 
-    #expect(cache.load(for: song.track) == .notFound)
+    #expect(viewModel.lyrics == .notFound)
+    #expect(cache.load(for: song.track) == nil)
     viewModel.stop()
 }
 

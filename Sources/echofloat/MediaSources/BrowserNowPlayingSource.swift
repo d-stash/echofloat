@@ -70,24 +70,29 @@ final class BrowserNowPlayingSource: MusicSource {
     }
 
     /// Locates the first Chrome tab whose URL is on music.youtube.com and reads
-    /// title/artist/playing/currentTime/duration off the page's <video> element.
-    private static let findAndReadScript = findAndRunScript("""
+    /// metadata plus track-relative timing from the player controls.
+    static let playbackReadJavaScript = """
         (function(){
           var v = document.querySelector('video');
+          var progress = document.querySelector('ytmusic-player-bar #progress-bar, #progress-bar');
           var titleEl = document.querySelector('.ytmusic-player-bar .title, ytmusic-player-bar .title');
           var artistEl = document.querySelector('.ytmusic-player-bar .byline, ytmusic-player-bar .byline');
           var title = titleEl ? titleEl.textContent.trim() : '';
           var artistRaw = artistEl ? artistEl.textContent.trim() : '';
           var artist = artistRaw.split(' • ')[0] || artistRaw;
+          var currentTime = Number(progress ? progress.getAttribute('aria-valuenow') : NaN);
+          var duration = Number(progress ? progress.getAttribute('aria-valuemax') : NaN);
           return JSON.stringify({
             title: title,
             artist: artist,
             playing: v ? !v.paused : false,
-            currentTime: v ? v.currentTime : 0,
-            duration: v ? v.duration : 0
+            currentTime: Number.isFinite(currentTime) ? currentTime : 0,
+            duration: Number.isFinite(duration) ? duration : 0
           });
         })();
-        """)
+        """
+
+    private static let findAndReadScript = findAndRunScript(playbackReadJavaScript)
 
     private static func findAndRunScript(_ js: String) -> String {
         """
