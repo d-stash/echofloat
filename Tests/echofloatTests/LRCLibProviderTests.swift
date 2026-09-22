@@ -89,8 +89,8 @@ private struct FakeHTTPClient: HTTPClient {
     let getBody = #"{"syncedLyrics":null,"plainLyrics":"Just words"}"#
     let searchBody = """
     [
-        {"syncedLyrics":null,"plainLyrics":"Just words","duration":300},
-        {"syncedLyrics":"[00:02.00]Hi\\n","plainLyrics":"Hi","duration":248}
+        {"artistName":"A","trackName":"T","syncedLyrics":null,"plainLyrics":"Just words","duration":300},
+        {"artistName":"A","trackName":"T","syncedLyrics":"[00:02.00]Hi\\n","plainLyrics":"Hi","duration":248}
     ]
     """
     let client = FakeHTTPClient { request in
@@ -168,6 +168,60 @@ private struct FakeHTTPClient: HTTPClient {
     )
     guard case .synced(let lines) = result else {
         Issue.record("expected synced result from search fallback after 404")
+        return
+    }
+    #expect(lines == [LyricLine(timestamp: 3.0, text: "Yo")])
+}
+
+@Test @MainActor func searchFallbackIgnoresSyncedCandidateWithUnrelatedArtist() async {
+    // Regression: a broader q= search can surface synced lyrics for a
+    // completely different song. Without an artist check we'd wrongly show
+    // someone else's lyrics, so an unrelated-artist match must be rejected
+    // and the original plain result kept.
+    let getBody = #"{"syncedLyrics":null,"plainLyrics":"Just words"}"#
+    let searchBody = """
+    [
+        {"artistName":"Some Other Band","trackName":"Unrelated Song","syncedLyrics":"[00:01.00]Nope\\n","plainLyrics":"Nope","duration":248}
+    ]
+    """
+    let client = FakeHTTPClient { request in
+        if request.url!.path.contains("/search") {
+            return .response(statusCode: 200, body: searchBody)
+        }
+        return .response(statusCode: 200, body: getBody)
+    }
+    let provider = LRCLibProvider(httpClient: client)
+    let result = await provider.lyrics(
+        for: TrackSignature(title: "Ran To Atlanta", artist: "Drake, Future & Molly Santana", album: nil, durationSeconds: 248)
+    )
+    #expect(result == .plain("Just words"))
+}
+
+@Test @MainActor func searchFallbackFindsSyncedLyricsDespiteMessyTrackNameMetadata() async {
+    // Regression for the real "Ran To Atlanta" case: LRCLIB's own synced
+    // submission had the artist name jammed into the track title
+    // ("Drake, Future, Molly Santana - Ran To Atlanta") rather than a clean
+    // trackName, and a decoy from an unrelated artist ranks first. The
+    // fallback must still pick the artist-matching synced entry.
+    let getBody = #"{"syncedLyrics":null,"plainLyrics":"Just words"}"#
+    let searchBody = """
+    [
+        {"artistName":"Some Other Band","trackName":"Unrelated Song","syncedLyrics":"[00:01.00]Nope\\n","plainLyrics":"Nope","duration":248},
+        {"artistName":"Drake","trackName":"Drake, Future, Molly Santana - Ran To Atlanta","syncedLyrics":"[00:03.00]Yo\\n","plainLyrics":"Yo","duration":248}
+    ]
+    """
+    let client = FakeHTTPClient { request in
+        if request.url!.path.contains("/search") {
+            return .response(statusCode: 200, body: searchBody)
+        }
+        return .response(statusCode: 200, body: getBody)
+    }
+    let provider = LRCLibProvider(httpClient: client)
+    let result = await provider.lyrics(
+        for: TrackSignature(title: "Ran To Atlanta", artist: "Drake, Future & Molly Santana", album: nil, durationSeconds: 248)
+    )
+    guard case .synced(let lines) = result else {
+        Issue.record("expected synced result matched via track-title-embedded artist")
         return
     }
     #expect(lines == [LyricLine(timestamp: 3.0, text: "Yo")])

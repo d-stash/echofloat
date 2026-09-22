@@ -223,7 +223,7 @@ private struct VinylRecordView: View {
 /// Renders as many lyric lines as fit the available height, centered on the
 /// currently-playing line, so growing the panel taller reveals more
 /// upcoming/previous lines instead of just stretching a single line.
-private struct LyricsStackView: View {
+struct LyricsStackView: View {
     let lyrics: LyricsResult
     let currentIndex: Int?
     let fallbackTitle: String
@@ -250,14 +250,14 @@ private struct LyricsStackView: View {
         }
     }
 
-    private struct Line: Identifiable {
+    struct Line: Identifiable, Equatable {
         let offset: Int
         let text: String
         let isCurrent: Bool
         var id: Int { offset }
     }
 
-    private func visibleLines(maxLines: Int) -> [Line] {
+    func visibleLines(maxLines: Int) -> [Line] {
         switch lyrics {
         case .synced(let lines) where !lines.isEmpty:
             let current = min(currentIndex ?? 0, lines.count - 1)
@@ -268,14 +268,19 @@ private struct LyricsStackView: View {
             return (clampedStart..<end).map { idx in
                 Line(offset: idx, text: lines[idx].text, isCurrent: idx == current)
             }
-        case .plain(let text) where !text.isEmpty:
-            return [Line(offset: 0, text: text, isCurrent: true)]
+        case .plain:
+            return [Line(offset: 0, text: Self.syncedLyricsComingSoonMessage, isCurrent: true)]
         case .unavailable:
             return [Line(offset: 0, text: "Lyrics temporarily unavailable", isCurrent: true)]
         default:
             return [Line(offset: 0, text: fallbackTitle, isCurrent: true)]
         }
     }
+
+    /// Plain (unsynced) lyrics render as a single truncated line, which looks
+    /// "stuck" rather than useful. Show a cheerful placeholder instead of a
+    /// clipped wall of text when only unsynced lyrics exist.
+    static let syncedLyricsComingSoonMessage = "Synced lyrics coming soon ✨"
 }
 
 /// Type-erased shape wrapper so albumArt can pick Circle vs RoundedRectangle at
