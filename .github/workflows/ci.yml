@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate shell scripts
+        run: bash -n setup.sh scripts/*.sh Tests/*.sh
+
+      - name: Validate workflow commands
+        run: bash Tests/WorkflowChecks.sh
+
+      - name: Verify toolchain compatibility manifests
+        run: bash Tests/ToolchainCompatibilityChecks.sh
+
+      - name: Run Swift tests
+        run: |
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=safe.bareRepository \
+          GIT_CONFIG_VALUE_0=all \
+            swift test --no-parallel
+
+      - name: Run animation checks
+        run: |
+          mkdir -p .build/ci-checks
+          swiftc Sources/echofloat/Theming/Theme.swift \
+            Sources/echofloat/Theming/ThemeAnimation.swift \
+            Tests/ThemeAnimationChecks.swift \
+            -o .build/ci-checks/theme-checks
+          .build/ci-checks/theme-checks
+
+      - name: Run playback timing checks
+        run: |
+          mkdir -p .build/ci-checks
+          swiftc Sources/echofloat/Models/TrackSignature.swift \
+            Sources/echofloat/Models/NowPlayingState.swift \
+            Sources/echofloat/Playback/PlaybackClock.swift \
+            Tests/PlaybackTimingChecks.swift \
+            -o .build/ci-checks/playback-checks
+          .build/ci-checks/playback-checks
+
+      - name: Verify app packaging
+        run: bash Tests/PackagingChecks.sh
+
+      - name: Verify installer lifecycle
+        run: bash Tests/InstallerChecks.sh
