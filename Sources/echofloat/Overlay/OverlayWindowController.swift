@@ -9,11 +9,14 @@ final class OverlayWindowController: NSObject {
     private let defaults: UserDefaults
     private static let visibilityKey = "echofloat.overlayVisible"
 
-    /// Default (and minimum) widget size: fixed lyrics line + controls row, no
-    /// hover-driven expand/collapse. Width can never shrink below this default.
-    private let defaultSize = CGSize(width: 260, height: 90)
+    /// Default (and minimum) widget size. Matches the size found to work well
+    /// in practice (comfortably fits the bar's fixed content - album art,
+    /// track info, transport controls, accessory - with room left for
+    /// lyrics), rather than the original narrower guess that could squeeze
+    /// the lyrics area to zero width on first launch.
+    private let defaultSize = CGSize(width: 643, height: 100)
 
-    var showOnAllDisplays = true {
+    var showOnAllDisplays = false {
         didSet { rebuildPanels() }
     }
 
