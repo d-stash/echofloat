@@ -71,15 +71,26 @@ final class BrowserNowPlayingSource: MusicSource {
 
     /// Locates the first Chrome tab whose URL is on music.youtube.com and reads
     /// metadata plus track-relative timing from the player controls.
+    ///
+    /// YouTube Music has rolled out a "player page modernization" redesign (behind
+    /// the `is-mweb-player-page-modernization-enabled` attribute on
+    /// `ytmusic-player-bar`) on some accounts, which leaves the legacy `.title`/
+    /// `.byline` elements present but empty. Rather than chase fragile internal
+    /// class names again, fall back to the standard `navigator.mediaSession.metadata`
+    /// Web API (which YouTube Music always populates for OS media controls) whenever
+    /// the DOM scrape comes back blank.
     static let playbackReadJavaScript = """
         (function(){
           var v = document.querySelector('video');
           var progress = document.querySelector('ytmusic-player-bar #progress-bar, #progress-bar');
           var titleEl = document.querySelector('.ytmusic-player-bar .title, ytmusic-player-bar .title');
           var artistEl = document.querySelector('.ytmusic-player-bar .byline, ytmusic-player-bar .byline');
-          var title = titleEl ? titleEl.textContent.trim() : '';
-          var artistRaw = artistEl ? artistEl.textContent.trim() : '';
-          var artist = artistRaw.split(' • ')[0] || artistRaw;
+          var domTitle = titleEl ? titleEl.textContent.trim() : '';
+          var domArtistRaw = artistEl ? artistEl.textContent.trim() : '';
+          var domArtist = domArtistRaw.split(' • ')[0] || domArtistRaw;
+          var mediaMeta = (navigator.mediaSession && navigator.mediaSession.metadata) ? navigator.mediaSession.metadata : null;
+          var title = domTitle || (mediaMeta && mediaMeta.title ? mediaMeta.title.trim() : '');
+          var artist = domArtist || (mediaMeta && mediaMeta.artist ? mediaMeta.artist.trim() : '');
           var currentTime = Number(progress ? progress.getAttribute('aria-valuenow') : NaN);
           var duration = Number(progress ? progress.getAttribute('aria-valuemax') : NaN);
           return JSON.stringify({
