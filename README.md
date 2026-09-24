@@ -56,6 +56,25 @@ Use the menu bar icon to show or hide the overlay, switch themes, toggle display
 
 Playback controls and lyrics track the active supported player automatically.
 
+### Move and resize the overlay
+
+- **Move:** click and drag anywhere on the overlay background to reposition it.
+- **Resize:** hover over an edge or corner of the overlay until the cursor changes, then drag to resize. The bottom-right corner resizes both width and height at once.
+
+Your custom size and position are remembered and reused the next time Echofloat launches.
+
+### Themes
+
+Echofloat ships with five built-in themes, switchable from the menu bar's Theme submenu:
+
+- **Neon Arcade** — retro arcade neon glow (default)
+- **Retro Terminal** — green-on-black CRT terminal look
+- **Midnight Aurora** — soft aurora gradient
+- **Sunset Vaporwave** — pink and purple vaporwave palette
+- **Vinyl Warmth** — warm analog vinyl tones
+
+More themes can be added by defining a new `Theme` in `Sources/echofloat/Theming/Theme.swift` and appending it to `Theme.builtIn`.
+
 ## Update
 
 Run the installer again:
@@ -138,7 +157,6 @@ Echofloat uses a Swift 5.9 base package for the app and a version-specific Swift
 - YouTube Music support depends on Chrome automation permissions and can be blocked until Apple Events access is approved.
 - Lyrics quality depends on LRCLIB coverage and timing.
 - The current release is source-built locally; there is no downloadable notarized binary.
-- Future work may expand player coverage and polish the overlay, but no roadmap items are committed in this repository.
 
 ## Contributing
 
