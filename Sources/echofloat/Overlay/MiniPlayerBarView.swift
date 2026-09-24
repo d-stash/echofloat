@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Single fixed overlay widget, redesigned as one horizontal bar (album art,
 /// title/artist, lyrics, transport controls, accessory icon) matching the
@@ -20,10 +21,14 @@ struct MiniPlayerBarView: View {
             DragHandleView(defaultOrigin: defaultOrigin)
 
             HStack(spacing: 12) {
-                albumArt
-                trackInfo
-                lyricsArea
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HStack(spacing: 12) {
+                    albumArt
+                        .contentShape(Rectangle())
+                        .onTapGesture { viewModel.openSourceApp() }
+                    trackInfo
+                    lyricsArea
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
                 transportControls
                 accessoryView
             }
