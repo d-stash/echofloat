@@ -10,6 +10,7 @@ final class PlayerViewModel: ObservableObject {
     private let musicSource: MusicSource
     private let lyricsProvider: LyricsProvider
     private let cache: LyricsCache
+    private let activator: AppActivating
     private let lyricsRetryBaseNanoseconds: UInt64
     private let lyricsRetryMaximumNanoseconds: UInt64
     private var listenTask: Task<Void, Never>?
@@ -23,12 +24,14 @@ final class PlayerViewModel: ObservableObject {
         musicSource: MusicSource,
         lyricsProvider: LyricsProvider,
         cache: LyricsCache,
+        activator: AppActivating = NSWorkspaceAppActivator(),
         lyricsRetryBaseNanoseconds: UInt64 = 1_000_000_000,
         lyricsRetryMaximumNanoseconds: UInt64 = 30_000_000_000
     ) {
         self.musicSource = musicSource
         self.lyricsProvider = lyricsProvider
         self.cache = cache
+        self.activator = activator
         let safeRetryBase = max(100_000_000, lyricsRetryBaseNanoseconds)
         self.lyricsRetryBaseNanoseconds = safeRetryBase
         self.lyricsRetryMaximumNanoseconds = max(
@@ -229,5 +232,11 @@ final class PlayerViewModel: ObservableObject {
 
     func previous() {
         musicSource.previous()
+    }
+
+    func openSourceApp() {
+        guard let name = nowPlaying?.sourceAppName,
+              let bundleID = sourceAppBundleID(for: name) else { return }
+        activator.activate(bundleID: bundleID)
     }
 }

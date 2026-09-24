@@ -248,3 +248,41 @@ private func track(
     #expect(viewModel.lyrics == .plain("New lyrics"))
     viewModel.stop()
 }
+
+private final class SpyAppActivator: AppActivating {
+    private(set) var activatedBundleIDs: [String] = []
+    func activate(bundleID: String) { activatedBundleIDs.append(bundleID) }
+}
+
+@Test @MainActor func openSourceAppActivatesBundleForCurrentSource() async throws {
+    let source = FakeMusicSource()
+    let provider = FakeLyricsProvider()
+    let cache = LyricsCache(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let spy = SpyAppActivator()
+    let viewModel = PlayerViewModel(musicSource: source, lyricsProvider: provider, cache: cache, activator: spy)
+    viewModel.start()
+
+    source.push(NowPlayingState(
+        track: TrackSignature(title: "S", artist: "A", album: nil, durationSeconds: nil),
+        sourceAppName: "Spotify",
+        status: .playing,
+        elapsedSeconds: 0,
+        capturedAt: Date()
+    ))
+    try await Task.sleep(nanoseconds: 50_000_000)
+
+    viewModel.openSourceApp()
+    #expect(spy.activatedBundleIDs == ["com.spotify.client"])
+    viewModel.stop()
+}
+
+@Test @MainActor func openSourceAppDoesNothingWhenNothingPlaying() {
+    let source = FakeMusicSource()
+    let provider = FakeLyricsProvider()
+    let cache = LyricsCache(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let spy = SpyAppActivator()
+    let viewModel = PlayerViewModel(musicSource: source, lyricsProvider: provider, cache: cache, activator: spy)
+
+    viewModel.openSourceApp()
+    #expect(spy.activatedBundleIDs.isEmpty)
+}
