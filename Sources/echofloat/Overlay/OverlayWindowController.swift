@@ -6,6 +6,7 @@ final class OverlayWindowController: NSObject {
     private var panels: [ObjectIdentifier: NSPanel] = [:]
     private let viewModel: PlayerViewModel
     private let themeManager: ThemeManager
+    private let fontSizeManager: FontSizeManager
     private let defaults: UserDefaults
     private static let visibilityKey = "echofloat.overlayVisible"
 
@@ -24,9 +25,10 @@ final class OverlayWindowController: NSObject {
         }
     }
 
-    init(viewModel: PlayerViewModel, themeManager: ThemeManager, defaults: UserDefaults = .standard) {
+    init(viewModel: PlayerViewModel, themeManager: ThemeManager, fontSizeManager: FontSizeManager, defaults: UserDefaults = .standard) {
         self.viewModel = viewModel
         self.themeManager = themeManager
+        self.fontSizeManager = fontSizeManager
         self.defaults = defaults
         self.isVisible = defaults.object(forKey: Self.visibilityKey) as? Bool ?? true
         super.init()
@@ -86,6 +88,7 @@ final class OverlayWindowController: NSObject {
             let content = OverlayContentView(
                 viewModel: viewModel,
                 themeManager: themeManager,
+                fontSizeManager: fontSizeManager,
                 minSize: minSize,
                 defaultOrigin: defaultOrigin
             )
@@ -162,6 +165,7 @@ private let resizeHandleThickness: CGFloat = 6
 private struct OverlayContentView: View {
     @ObservedObject var viewModel: PlayerViewModel
     @ObservedObject var themeManager: ThemeManager
+    @ObservedObject var fontSizeManager: FontSizeManager
     let minSize: CGSize
     let defaultOrigin: (CGSize) -> CGPoint
 
@@ -170,6 +174,7 @@ private struct OverlayContentView: View {
             MiniPlayerBarView(
                 viewModel: viewModel,
                 theme: themeManager.current,
+                fontScale: fontSizeManager.current.scale,
                 defaultOrigin: defaultOrigin
             )
 

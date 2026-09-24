@@ -6,7 +6,7 @@ Animated, always-visible lyrics and playback controls for macOS.
 
 - Live lyrics from LRCLIB with local caching for repeat playback.
 - Playback control support for YouTube Music in Chrome, Apple Music, and Spotify.
-- A menu bar app with theme controls, visibility controls, and Launch at Login.
+- A menu bar app with theme controls, font size presets, visibility controls, and Launch at Login.
 - A lightweight local build that installs into `~/Applications/Echofloat.app`.
 
 ## Run locally
@@ -52,7 +52,7 @@ For YouTube Music in Chrome, enable Apple Events JavaScript in Chrome:
 
 ## Use Echofloat
 
-Use the menu bar icon to show or hide the overlay, switch themes, toggle display mode, and control Launch at Login.
+Use the menu bar icon to show or hide the overlay, switch themes, adjust font size, toggle display mode, and control Launch at Login.
 
 Playback controls and lyrics track the active supported player automatically.
 

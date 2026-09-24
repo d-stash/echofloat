@@ -66,12 +66,15 @@ private func autostartMenuItem(in menu: NSMenu) -> NSMenuItem? {
     let themeDefaults = try #require(UserDefaults(suiteName: "StatusItemApprovalTests.\(UUID().uuidString)"))
     let overlayDefaults = try #require(UserDefaults(suiteName: "StatusItemApprovalTests.overlay.\(UUID().uuidString)"))
     let themeManager = ThemeManager(defaults: themeDefaults)
+    let fontSizeManager = FontSizeManager(defaults: overlayDefaults)
     var guidancePresentations = 0
     let controller = StatusItemController(
         themeManager: themeManager,
+        fontSizeManager: fontSizeManager,
         overlayController: OverlayWindowController(
             viewModel: viewModel,
             themeManager: themeManager,
+            fontSizeManager: fontSizeManager,
             defaults: overlayDefaults
         ),
         autostartManager: AutostartManager(service: service),
@@ -103,13 +106,16 @@ private func autostartMenuItem(in menu: NSMenu) -> NSMenuItem? {
     let themeDefaults = try #require(UserDefaults(suiteName: "StatusItemControllerTests.\(UUID().uuidString)"))
     let overlayDefaults = try #require(UserDefaults(suiteName: "StatusItemControllerTests.overlay.\(UUID().uuidString)"))
     let themeManager = ThemeManager(defaults: themeDefaults)
+    let fontSizeManager = FontSizeManager(defaults: overlayDefaults)
     let overlayController = OverlayWindowController(
         viewModel: viewModel,
         themeManager: themeManager,
+        fontSizeManager: fontSizeManager,
         defaults: overlayDefaults
     )
     let controller = StatusItemController(
         themeManager: themeManager,
+        fontSizeManager: fontSizeManager,
         overlayController: overlayController,
         autostartManager: AutostartManager(service: service)
     )
