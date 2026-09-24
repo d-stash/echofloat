@@ -4,6 +4,7 @@ import AppKit
 final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let themeManager: ThemeManager
+    private let fontSizeManager: FontSizeManager
     private let overlayController: OverlayWindowController
     private let autostartManager: AutostartManager
     private let approvalPresenter: @MainActor () -> Void
@@ -11,17 +12,23 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let visibilityItem = NSMenuItem(title: "", action: #selector(toggleOverlayVisibility), keyEquivalent: "")
     private let themeMenu = NSMenu()
     private let themeItem = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
+    private let fontSizeMenu = NSMenu()
+    private let fontSizeItem = NSMenuItem(title: "Font Size", action: nil, keyEquivalent: "")
+    private let increaseFontSizeItem = NSMenuItem(title: "Increase Font Size", action: #selector(increaseFontSize), keyEquivalent: "=")
+    private let decreaseFontSizeItem = NSMenuItem(title: "Decrease Font Size", action: #selector(decreaseFontSize), keyEquivalent: "-")
     private let displayModeItem = NSMenuItem(title: "Show on Active Display Only", action: #selector(toggleDisplayMode), keyEquivalent: "")
     private let autostartItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleAutostart), keyEquivalent: "")
     private let quitItem = NSMenuItem(title: "Quit Echofloat", action: #selector(quit), keyEquivalent: "q")
 
     init(
         themeManager: ThemeManager,
+        fontSizeManager: FontSizeManager,
         overlayController: OverlayWindowController,
         autostartManager: AutostartManager,
         approvalPresenter: @escaping @MainActor () -> Void = StatusItemController.presentApprovalGuidance
     ) {
         self.themeManager = themeManager
+        self.fontSizeManager = fontSizeManager
         self.overlayController = overlayController
         self.autostartManager = autostartManager
         self.approvalPresenter = approvalPresenter
@@ -46,6 +53,20 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
         themeItem.submenu = themeMenu
         menu.addItem(themeItem)
+
+        increaseFontSizeItem.target = self
+        fontSizeMenu.addItem(increaseFontSizeItem)
+        decreaseFontSizeItem.target = self
+        fontSizeMenu.addItem(decreaseFontSizeItem)
+        fontSizeMenu.addItem(.separator())
+        for preset in FontSizePreset.ordered {
+            let item = NSMenuItem(title: preset.name, action: #selector(selectFontSize(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset.rawValue
+            fontSizeMenu.addItem(item)
+        }
+        fontSizeItem.submenu = fontSizeMenu
+        menu.addItem(fontSizeItem)
 
         displayModeItem.target = self
         menu.addItem(displayModeItem)
@@ -73,6 +94,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             guard let id = item.representedObject as? String else { continue }
             item.state = id == themeManager.current.id ? .on : .off
         }
+
+        for item in fontSizeMenu.items {
+            guard let id = item.representedObject as? String else { continue }
+            item.state = id == fontSizeManager.current.rawValue ? .on : .off
+        }
+        increaseFontSizeItem.isEnabled = fontSizeManager.current != FontSizePreset.ordered.last
+        decreaseFontSizeItem.isEnabled = fontSizeManager.current != FontSizePreset.ordered.first
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -83,6 +111,23 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         guard let id = sender.representedObject as? String,
               let theme = Theme.builtIn.first(where: { $0.id == id }) else { return }
         themeManager.select(theme)
+        refreshMenuState()
+    }
+
+    @objc private func selectFontSize(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String,
+              let preset = FontSizePreset(rawValue: id) else { return }
+        fontSizeManager.select(preset)
+        refreshMenuState()
+    }
+
+    @objc private func increaseFontSize() {
+        fontSizeManager.increase()
+        refreshMenuState()
+    }
+
+    @objc private func decreaseFontSize() {
+        fontSizeManager.decrease()
         refreshMenuState()
     }
 

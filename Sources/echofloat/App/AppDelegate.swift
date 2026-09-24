@@ -26,7 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel = vm
 
         let themeManager = ThemeManager()
-        let overlay = OverlayWindowController(viewModel: vm, themeManager: themeManager)
+        let fontSizeManager = FontSizeManager()
+        let overlay = OverlayWindowController(viewModel: vm, themeManager: themeManager, fontSizeManager: fontSizeManager)
         overlay.start()
         overlayController = overlay
 
@@ -38,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         statusItemController = StatusItemController(
             themeManager: themeManager,
+            fontSizeManager: fontSizeManager,
             overlayController: overlay,
             autostartManager: autostartManager
         )

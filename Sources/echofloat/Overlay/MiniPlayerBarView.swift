@@ -8,8 +8,18 @@ import AppKit
 struct MiniPlayerBarView: View {
     @ObservedObject var viewModel: PlayerViewModel
     let theme: Theme
+    /// Multiplier from the active `FontSizePreset`, applied to every base point
+    /// size below so users can bump overlay legibility up or down.
+    let fontScale: CGFloat
     let defaultOrigin: (CGSize) -> CGPoint
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Base point sizes (at the default/1.0 preset) mirroring the previous
+    /// fixed text styles (.caption2/.caption/.callout) so the default look is
+    /// unchanged.
+    private var caption2Size: CGFloat { 11 * fontScale }
+    private var captionSize: CGFloat { 12 * fontScale }
+    private var calloutSize: CGFloat { 16 * fontScale }
 
     private var isPlaying: Bool {
         viewModel.nowPlaying?.status == .playing
@@ -75,11 +85,11 @@ struct MiniPlayerBarView: View {
         if let track = viewModel.nowPlaying?.track {
             VStack(alignment: .leading, spacing: 1) {
                 Text(track.title)
-                    .font(.system(.caption, design: theme.fontDesign).bold())
+                    .font(.system(size: captionSize, weight: .bold, design: theme.fontDesign))
                     .foregroundStyle(theme.textColor)
                     .lineLimit(1)
                 Text(track.artist)
-                    .font(.system(.caption2, design: theme.fontDesign))
+                    .font(.system(size: caption2Size, design: theme.fontDesign))
                     .foregroundStyle(theme.secondaryTextColor)
                     .lineLimit(1)
             }
@@ -93,7 +103,7 @@ struct MiniPlayerBarView: View {
     private var lyricsArea: some View {
         if viewModel.nowPlaying == nil {
             Text("Nothing playing")
-                .font(.system(.caption, design: theme.fontDesign))
+                .font(.system(size: captionSize, design: theme.fontDesign))
                 .foregroundStyle(theme.secondaryTextColor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -103,7 +113,9 @@ struct MiniPlayerBarView: View {
                 fallbackTitle: viewModel.nowPlaying?.track.title ?? "",
                 accentColor: Color(hex: theme.accentColorHex),
                 secondaryColor: theme.secondaryTextColor,
-                fontDesign: theme.fontDesign
+                fontDesign: theme.fontDesign,
+                currentLineSize: calloutSize,
+                otherLineSize: caption2Size
             )
         }
     }
@@ -235,6 +247,8 @@ struct LyricsStackView: View {
     let accentColor: Color
     let secondaryColor: Color
     let fontDesign: Font.Design
+    let currentLineSize: CGFloat
+    let otherLineSize: CGFloat
 
     private let lineHeight: CGFloat = 18
 
@@ -244,7 +258,7 @@ struct LyricsStackView: View {
             VStack(spacing: 2) {
                 ForEach(visibleLines(maxLines: maxLines), id: \.offset) { line in
                     Text(line.text)
-                        .font(.system(line.isCurrent ? .callout : .caption2, design: fontDesign).weight(line.isCurrent ? .bold : .regular))
+                        .font(.system(size: line.isCurrent ? currentLineSize : otherLineSize, weight: line.isCurrent ? .bold : .regular, design: fontDesign))
                         .foregroundStyle(line.isCurrent ? accentColor : secondaryColor)
                         .shadow(color: line.isCurrent ? accentColor.opacity(0.6) : .clear, radius: 3)
                         .lineLimit(1)

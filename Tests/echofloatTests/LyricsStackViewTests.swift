@@ -9,7 +9,9 @@ import Testing
         fallbackTitle: "Now Playing",
         accentColor: .white,
         secondaryColor: .gray,
-        fontDesign: .default
+        fontDesign: .default,
+        currentLineSize: 16,
+        otherLineSize: 11
     )
     let lines = view.visibleLines(maxLines: 3)
     #expect(lines == [
@@ -24,7 +26,9 @@ import Testing
         fallbackTitle: "Now Playing",
         accentColor: .white,
         secondaryColor: .gray,
-        fontDesign: .default
+        fontDesign: .default,
+        currentLineSize: 16,
+        otherLineSize: 11
     )
     let lines = view.visibleLines(maxLines: 3)
     #expect(lines == [LyricsStackView.Line(offset: 0, text: "Hello", isCurrent: true)])
