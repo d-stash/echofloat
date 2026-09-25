@@ -16,6 +16,7 @@ Run these from the repository root:
 swift build
 bash Tests/PackagingChecks.sh
 bash Tests/InstallerChecks.sh
+bash Tests/ReleaseScriptChecks.sh
 ```
 
 With Swift 6.1 or newer, also run:

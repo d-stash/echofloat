@@ -58,5 +58,8 @@ jobs:
       - name: Verify app packaging
         run: bash Tests/PackagingChecks.sh
 
+      - name: Verify release script
+        run: bash Tests/ReleaseScriptChecks.sh
+
       - name: Verify installer lifecycle
         run: bash Tests/InstallerChecks.sh
