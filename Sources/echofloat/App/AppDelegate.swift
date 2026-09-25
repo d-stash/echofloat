@@ -50,7 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             themeManager: themeManager,
             fontSizeManager: fontSizeManager,
             overlayController: overlay,
-            autostartManager: autostartManager
+            autostartManager: autostartManager,
+            updateChecker: updater
         )
     }
 }

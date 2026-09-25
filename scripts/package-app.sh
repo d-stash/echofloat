@@ -48,6 +48,10 @@ test -x "$BIN_DIR/echofloat" || {
     echo "Release executable not found. Run without --skip-build." >&2
     exit 1
 }
+test -d "$BIN_DIR/Sparkle.framework" || {
+    echo "Sparkle.framework not found next to the built executable. Run without --skip-build." >&2
+    exit 1
+}
 
 WORK_DIR="$ROOT/.build/package-app-work"
 rm -rf "$WORK_DIR"
@@ -55,12 +59,16 @@ mkdir -p "$WORK_DIR"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 APP="$WORK_DIR/Echofloat.app"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 /usr/bin/ditto "$BIN_DIR/echofloat" "$APP/Contents/MacOS/echofloat"
+/usr/bin/ditto "$BIN_DIR/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 /usr/bin/ditto "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 /usr/bin/ditto "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 chmod 755 "$APP/Contents/MacOS/echofloat"
+/usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/echofloat"
+/usr/bin/xattr -cr "$APP"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP/Contents/Info.plist"
 /usr/bin/plutil -lint "$APP/Contents/Info.plist"
 /usr/bin/codesign --force --deep --sign - "$APP"
 /usr/bin/codesign --verify --deep --strict "$APP"

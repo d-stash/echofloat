@@ -47,7 +47,8 @@ LENGTH="$(stat -f%z "$ZIP")"
 if $DRY_RUN; then
     SIGNATURE="dry-run-placeholder-signature"
 else
-    SIGNATURE="$("$SPARKLE_TOOLS_DIR/bin/sign_update" "$ZIP" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')"
+    test -n "${SPARKLE_PRIVATE_KEY:-}" || { echo "SPARKLE_PRIVATE_KEY environment variable is required unless --dry-run is set" >&2; exit 1; }
+    SIGNATURE="$(echo "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_TOOLS_DIR/bin/sign_update" --ed-key-file - -p "$ZIP")"
     test -n "$SIGNATURE" || { echo "sign_update did not produce a signature" >&2; exit 1; }
 fi
 
