@@ -43,6 +43,13 @@ bash Tests/ToolchainCompatibilityChecks.sh
 - Screenshots are included only when the change is visual and repository-owned images already exist; do not add placeholders, borrowed art, or broken image links.
 - No unrelated files are modified.
 
+## Cutting a release
+
+1. Bump `VERSION` (semantic version, e.g. `0.2.0`) and commit.
+2. Tag and push: `git tag v0.2.0 && git push origin v0.2.0`.
+3. The `Release` GitHub Actions workflow builds, signs, and publishes the release automatically — see `.github/workflows/release.yml`.
+4. Confirm the new version appears at the `SUFeedURL` in `Resources/Info.plist` before announcing.
+
 ## Notes
 
 Echofloat is a local macOS app. If you change install, uninstall, or Launch at Login behavior, verify the relevant setup and removal paths before opening a pull request.

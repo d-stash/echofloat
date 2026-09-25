@@ -77,9 +77,12 @@ More themes can be added by defining a new `Theme` in `Sources/echofloat/Theming
 
 ## Update
 
-Run the installer again:
+Echofloat checks for updates automatically and lets you install them from the menu bar (Echofloat menu > Check for Updates…).
+
+Building from source instead? Pull the latest changes and reinstall:
 
 ```bash
+git pull
 ./setup.sh
 ```
 
@@ -156,7 +159,7 @@ Echofloat uses a Swift 5.9 base package for the app and a version-specific Swift
 
 - YouTube Music support depends on Chrome automation permissions and can be blocked until Apple Events access is approved.
 - Lyrics quality depends on LRCLIB coverage and timing.
-- The current release is source-built locally; there is no downloadable notarized binary.
+- Releases are signed for Sparkle auto-update (EdDSA), not with an Apple Developer ID — first install still requires right-click > Open once, the same as before.
 
 ## Contributing
 
