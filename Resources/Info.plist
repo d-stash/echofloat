@@ -28,5 +28,13 @@
     <string>Echofloat reads and controls your active supported music player to display synchronized lyrics.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUFeedURL</key>
+    <string>https://d-stash.github.io/echofloat/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>wu2clWHXm08TQDZkH50p9TofJavQv97Gh9p4cRBO6rg=</string>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
 </dict>
 </plist>
