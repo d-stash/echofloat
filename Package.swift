@@ -7,7 +7,15 @@ let package = Package(
     products: [
         .executable(name: "echofloat", targets: ["echofloat"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.0"),
+    ],
     targets: [
-        .executableTarget(name: "echofloat"),
+        .executableTarget(
+            name: "echofloat",
+            dependencies: [
+                .product(name: "Sparkle", package: "Sparkle"),
+            ]
+        ),
     ]
 )
