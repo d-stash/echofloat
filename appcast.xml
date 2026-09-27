@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>Echofloat</title>
+        <item>
+            <title>Version 0.1.1</title>
+            <pubDate>Sun, 27 Sep 2026 13:13:34 +0000</pubDate>
+            <sparkle:version>0.1.1</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/d-stash/echofloat/releases/download/v0.1.1/Echofloat-0.1.1.zip"
+                sparkle:version="0.1.1"
+                sparkle:edSignature="oPrBNXUv1GWNWV1wjcNgDjZ3I1Z4/gr0TQX06J4nbD7ARUUxcXwkVp4I+6QsN/ydF32AyUBurd1GrVEReCy+Cg=="
+                length="2640993"
+                type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>
