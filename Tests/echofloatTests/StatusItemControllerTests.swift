@@ -141,3 +141,55 @@ private func autostartMenuItem(in menu: NSMenu) -> NSMenuItem? {
     #expect(enabledItem.title == "Launch at Login")
     #expect(enabledItem.state == .on)
 }
+
+private final class RecordingUpdateChecker: UpdateChecking {
+    var automaticallyChecksForUpdates = true
+    var checkForUpdatesCallCount = 0
+
+    func checkForUpdates(_ sender: Any?) {
+        checkForUpdatesCallCount += 1
+    }
+}
+
+private func checkForUpdatesMenuItem(in menu: NSMenu) -> NSMenuItem? {
+    menu.items.first { $0.title == "Check for Updates…" }
+}
+
+@Test @MainActor func checkForUpdatesMenuItemInvokesUpdateChecker() throws {
+    _ = NSApplication.shared
+    let service = MutableLoginItemService()
+    let cacheDirectory = try makeStatusItemTestDirectory()
+    defer { try? FileManager.default.removeItem(at: cacheDirectory.deletingLastPathComponent()) }
+
+    let viewModel = PlayerViewModel(
+        musicSource: SilentMusicSource(),
+        lyricsProvider: NeverLyricsProvider(),
+        cache: LyricsCache(directory: cacheDirectory)
+    )
+    let themeDefaults = try #require(UserDefaults(suiteName: "StatusItemUpdateTests.\(UUID().uuidString)"))
+    let overlayDefaults = try #require(UserDefaults(suiteName: "StatusItemUpdateTests.overlay.\(UUID().uuidString)"))
+    let themeManager = ThemeManager(defaults: themeDefaults)
+    let fontSizeManager = FontSizeManager(defaults: overlayDefaults)
+    let updateChecker = RecordingUpdateChecker()
+    let controller = StatusItemController(
+        themeManager: themeManager,
+        fontSizeManager: fontSizeManager,
+        overlayController: OverlayWindowController(
+            viewModel: viewModel,
+            themeManager: themeManager,
+            fontSizeManager: fontSizeManager,
+            defaults: overlayDefaults
+        ),
+        autostartManager: AutostartManager(service: service),
+        updateChecker: updateChecker
+    )
+
+    let statusItem = try #require(reflectedStatusItem(from: controller))
+    defer { NSStatusBar.system.removeStatusItem(statusItem) }
+    let menu = try #require(statusItem.menu)
+    let item = try #require(checkForUpdatesMenuItem(in: menu))
+
+    _ = item.target?.perform(item.action, with: item)
+
+    #expect(updateChecker.checkForUpdatesCallCount == 1)
+}

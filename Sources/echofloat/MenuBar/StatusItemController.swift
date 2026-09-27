@@ -18,19 +18,23 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let decreaseFontSizeItem = NSMenuItem(title: "Decrease Font Size", action: #selector(decreaseFontSize), keyEquivalent: "-")
     private let displayModeItem = NSMenuItem(title: "Show on Active Display Only", action: #selector(toggleDisplayMode), keyEquivalent: "")
     private let autostartItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleAutostart), keyEquivalent: "")
+    private let checkForUpdatesItem = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
     private let quitItem = NSMenuItem(title: "Quit Echofloat", action: #selector(quit), keyEquivalent: "q")
+    private let updateChecker: UpdateChecking
 
     init(
         themeManager: ThemeManager,
         fontSizeManager: FontSizeManager,
         overlayController: OverlayWindowController,
         autostartManager: AutostartManager,
+        updateChecker: UpdateChecking = NoopUpdateChecker(),
         approvalPresenter: @escaping @MainActor () -> Void = StatusItemController.presentApprovalGuidance
     ) {
         self.themeManager = themeManager
         self.fontSizeManager = fontSizeManager
         self.overlayController = overlayController
         self.autostartManager = autostartManager
+        self.updateChecker = updateChecker
         self.approvalPresenter = approvalPresenter
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         super.init()
@@ -73,6 +77,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         autostartItem.target = self
         menu.addItem(autostartItem)
+
+        menu.addItem(.separator())
+
+        checkForUpdatesItem.target = self
+        menu.addItem(checkForUpdatesItem)
 
         menu.addItem(.separator())
 
@@ -170,6 +179,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
            let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    @objc private func checkForUpdates() {
+        updateChecker.checkForUpdates(nil)
     }
 
     @objc private func quit() {

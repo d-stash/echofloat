@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag matches VERSION file
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          if [[ "$TAG" != "$FILE_VERSION" ]]; then
+            echo "Tag v$TAG does not match VERSION file ($FILE_VERSION)" >&2
+            exit 1
+          fi
+
+      - name: Download Sparkle CLI tools
+        run: |
+          curl -L -o /tmp/Sparkle-2.10.0.tar.xz \
+            https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-2.10.0.tar.xz
+          mkdir -p /tmp/sparkle-tools
+          tar -xf /tmp/Sparkle-2.10.0.tar.xz -C /tmp/sparkle-tools
+
+      - name: Build, sign, and generate appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=safe.bareRepository \
+          GIT_CONFIG_VALUE_0=all \
+            bash scripts/publish-release.sh --output-dir dist --sparkle-tools-dir /tmp/sparkle-tools
+
+      - name: Publish appcast to gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages || true
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git worktree add /tmp/gh-pages gh-pages
+          else
+            git worktree add --detach /tmp/gh-pages
+            (cd /tmp/gh-pages && git checkout --orphan gh-pages && git rm -rf . >/dev/null 2>&1 || true)
+          fi
+          cp dist/appcast.xml /tmp/gh-pages/appcast.xml
+          cd /tmp/gh-pages
+          git add appcast.xml
+          git commit -m "chore: publish appcast for ${{ github.ref_name }}" || echo "Nothing to commit"
+          git push origin gh-pages
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          gh release create "v$VERSION" \
+            "dist/Echofloat-$VERSION.zip" \
+            --title "Echofloat $VERSION" \
+            --generate-notes

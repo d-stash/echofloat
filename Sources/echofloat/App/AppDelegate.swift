@@ -1,9 +1,11 @@
 import AppKit
+import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var overlayController: OverlayWindowController?
     private var viewModel: PlayerViewModel?
+    private var updaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -37,11 +39,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             NSLog("Echofloat: Could not remove legacy login item: \(error.localizedDescription)")
         }
+        let updater = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+        updaterController = updater
+
         statusItemController = StatusItemController(
             themeManager: themeManager,
             fontSizeManager: fontSizeManager,
             overlayController: overlay,
-            autostartManager: autostartManager
+            autostartManager: autostartManager,
+            updateChecker: updater
         )
     }
 }
