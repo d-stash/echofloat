@@ -193,3 +193,26 @@ private func checkForUpdatesMenuItem(in menu: NSMenu) -> NSMenuItem? {
 
     #expect(updateChecker.checkForUpdatesCallCount == 1)
 }
+
+@Test @MainActor func closingOverlayHidesAndPersistsVisibility() throws {
+    let cacheDirectory = try makeStatusItemTestDirectory()
+    defer { try? FileManager.default.removeItem(at: cacheDirectory.deletingLastPathComponent()) }
+
+    let defaults = try #require(UserDefaults(suiteName: "OverlayCloseTests.\(UUID().uuidString)"))
+    let themeManager = ThemeManager(defaults: defaults)
+    let controller = OverlayWindowController(
+        viewModel: PlayerViewModel(
+            musicSource: SilentMusicSource(),
+            lyricsProvider: NeverLyricsProvider(),
+            cache: LyricsCache(directory: cacheDirectory)
+        ),
+        themeManager: themeManager,
+        fontSizeManager: FontSizeManager(defaults: defaults),
+        defaults: defaults
+    )
+
+    controller.closeOverlay()
+
+    #expect(controller.isVisible == false)
+    #expect(defaults.bool(forKey: "echofloat.overlayVisible") == false)
+}

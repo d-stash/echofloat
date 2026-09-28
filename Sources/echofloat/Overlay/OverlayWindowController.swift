@@ -51,6 +51,10 @@ final class OverlayWindowController: NSObject {
         rebuildPanels()
     }
 
+    func closeOverlay() {
+        isVisible = false
+    }
+
     @objc private func rebuildPanels() {
         guard isVisible else {
             for panel in panels.values { panel.orderOut(nil) }
@@ -93,7 +97,8 @@ final class OverlayWindowController: NSObject {
                 themeManager: themeManager,
                 fontSizeManager: fontSizeManager,
                 minSize: minSize,
-                defaultOrigin: defaultOrigin
+                defaultOrigin: defaultOrigin,
+                onClose: { [weak self] in self?.closeOverlay() }
             )
 
             if let panel = panels[screenID] {
@@ -171,6 +176,7 @@ private struct OverlayContentView: View {
     @ObservedObject var fontSizeManager: FontSizeManager
     let minSize: CGSize
     let defaultOrigin: (CGSize) -> CGPoint
+    let onClose: () -> Void
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -178,7 +184,8 @@ private struct OverlayContentView: View {
                 viewModel: viewModel,
                 theme: themeManager.current,
                 fontScale: fontSizeManager.current.scale,
-                defaultOrigin: defaultOrigin
+                defaultOrigin: defaultOrigin,
+                onClose: onClose
             )
 
             // Real macOS resize cursor can't repaint on a non-activating accessory

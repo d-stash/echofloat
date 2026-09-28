@@ -12,6 +12,7 @@ struct MiniPlayerBarView: View {
     /// size below so users can bump overlay legibility up or down.
     let fontScale: CGFloat
     let defaultOrigin: (CGSize) -> CGPoint
+    let onClose: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Base point sizes (at the default/1.0 preset) mirroring the previous
@@ -44,6 +45,18 @@ struct MiniPlayerBarView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
+        }
+        .overlay(alignment: .topTrailing) {
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .frame(width: 24, height: 24)
+                    .background(.black.opacity(0.25), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close overlay")
+            .padding(6)
         }
         .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
     }
