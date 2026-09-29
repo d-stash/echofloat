@@ -91,8 +91,12 @@ final class BrowserNowPlayingSource: MusicSource {
           var mediaMeta = (navigator.mediaSession && navigator.mediaSession.metadata) ? navigator.mediaSession.metadata : null;
           var title = domTitle || (mediaMeta && mediaMeta.title ? mediaMeta.title.trim() : '');
           var artist = domArtist || (mediaMeta && mediaMeta.artist ? mediaMeta.artist.trim() : '');
-          var currentTime = Number(progress ? progress.getAttribute('aria-valuenow') : NaN);
-          var duration = Number(progress ? progress.getAttribute('aria-valuemax') : NaN);
+          var ariaCurrentTime = progress ? progress.getAttribute('aria-valuenow') : null;
+          var ariaDuration = progress ? progress.getAttribute('aria-valuemax') : null;
+          var currentTime = ariaCurrentTime !== null && ariaCurrentTime.trim() !== '' ? Number(ariaCurrentTime) : NaN;
+          var duration = ariaDuration !== null && ariaDuration.trim() !== '' ? Number(ariaDuration) : NaN;
+          if (!Number.isFinite(currentTime)) currentTime = v ? Number(v.currentTime) : NaN;
+          if (!Number.isFinite(duration)) duration = v ? Number(v.duration) : NaN;
           return JSON.stringify({
             title: title,
             artist: artist,
