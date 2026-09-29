@@ -85,6 +85,27 @@ private struct FakeHTTPClient: HTTPClient {
     #expect(result == .unavailable)
 }
 
+@Test @MainActor func omitsInvalidZeroDurationFromLookup() async {
+    let json = #"{"syncedLyrics":"[00:01.00]Hello\n","plainLyrics":"Hello"}"#
+    let client = FakeHTTPClient { request in
+        let duration = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first { $0.name == "duration" }?
+            .value
+        return .response(statusCode: duration == "0" ? 400 : 200, body: json)
+    }
+    let provider = LRCLibProvider(httpClient: client)
+    let result = await provider.lyrics(
+        for: TrackSignature(title: "T", artist: "A", album: nil, durationSeconds: 0)
+    )
+
+    guard case .synced(let lines) = result else {
+        Issue.record("expected valid lyric lookup when invalid duration is omitted")
+        return
+    }
+    #expect(lines == [LyricLine(timestamp: 1.0, text: "Hello")])
+}
+
 @Test @MainActor func searchFallbackFindsSyncedLyricsWhenGetReturnsPlainOnly() async {
     let getBody = #"{"syncedLyrics":null,"plainLyrics":"Just words"}"#
     let searchBody = """

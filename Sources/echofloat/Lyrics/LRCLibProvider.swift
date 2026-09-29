@@ -125,7 +125,7 @@ struct LRCLibProvider: LyricsProvider {
         if let album = track.album {
             items.append(URLQueryItem(name: "album_name", value: album))
         }
-        if let duration = track.durationSeconds {
+        if let duration = track.durationSeconds, (1...3600).contains(duration) {
             items.append(URLQueryItem(name: "duration", value: String(duration)))
         }
         components.queryItems = items
