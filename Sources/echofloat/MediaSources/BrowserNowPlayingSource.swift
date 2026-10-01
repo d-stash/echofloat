@@ -79,6 +79,11 @@ final class BrowserNowPlayingSource: MusicSource {
     /// class names again, fall back to the standard `navigator.mediaSession.metadata`
     /// Web API (which YouTube Music always populates for OS media controls) whenever
     /// the DOM scrape comes back blank.
+    ///
+    /// The redesign also replaces `#progress-bar` with an
+    /// `<input type="range" class="ytMusicMiniPlayerProgressBar">`. Read it before
+    /// falling back to `<video>`: with gapless playback the video timeline spans
+    /// previously buffered tracks, so `video.currentTime` is not track-relative.
     static let playbackReadJavaScript = """
         (function(){
           var v = document.querySelector('video');
@@ -95,6 +100,15 @@ final class BrowserNowPlayingSource: MusicSource {
           var ariaDuration = progress ? progress.getAttribute('aria-valuemax') : null;
           var currentTime = ariaCurrentTime !== null && ariaCurrentTime.trim() !== '' ? Number(ariaCurrentTime) : NaN;
           var duration = ariaDuration !== null && ariaDuration.trim() !== '' ? Number(ariaDuration) : NaN;
+          var slider = document.querySelector('input.ytMusicMiniPlayerProgressBar, .ytMusicMiniPlayerProgressBar');
+          if (slider && !Number.isFinite(currentTime)) {
+            var sliderValue = String(slider.value || '').trim() !== '' ? Number(slider.value) : NaN;
+            var sliderMax = String(slider.max || '').trim() !== '' ? Number(slider.max) : NaN;
+            if (Number.isFinite(sliderValue) && Number.isFinite(sliderMax) && sliderMax > 0) {
+              currentTime = sliderValue;
+              if (!Number.isFinite(duration)) duration = sliderMax;
+            }
+          }
           if (!Number.isFinite(currentTime)) currentTime = v ? Number(v.currentTime) : NaN;
           if (!Number.isFinite(duration)) duration = v ? Number(v.duration) : NaN;
           return JSON.stringify({

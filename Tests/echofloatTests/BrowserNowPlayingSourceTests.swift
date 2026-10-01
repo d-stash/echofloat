@@ -49,3 +49,32 @@ import Testing
     #expect(payload["currentTime"] as? Double == 42.5)
     #expect(payload["duration"] as? Double == 247)
 }
+
+/// Regression test for YouTube Music's redesigned mini player, which replaces
+/// `#progress-bar` with `<input type="range" class="ytMusicMiniPlayerProgressBar">`.
+/// With gapless playback the shared `<video>` timeline spans earlier tracks, so
+/// `video.currentTime` is far ahead of the track-relative position.
+@Test @MainActor func browserPlaybackPrefersMiniPlayerSliderOverVideoTimeline() throws {
+    let context = try #require(JSContext())
+    context.evaluateScript("""
+        var video = { paused: false, currentTime: 413.0, duration: 526.49 };
+        var slider = { value: '173', max: '288', getAttribute: function() { return null; } };
+        var document = {
+            querySelector: function(selector) {
+                if (selector === 'video') return video;
+                if (selector.indexOf('ytMusicMiniPlayerProgressBar') >= 0) return slider;
+                return null;
+            }
+        };
+        var navigator = {};
+        """)
+
+    let output = try #require(
+        context.evaluateScript(BrowserNowPlayingSource.playbackReadJavaScript)?.toString()
+    )
+    let data = try #require(output.data(using: .utf8))
+    let payload = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+    #expect(payload["currentTime"] as? Double == 173)
+    #expect(payload["duration"] as? Double == 288)
+}
